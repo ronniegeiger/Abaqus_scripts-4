@@ -318,6 +318,15 @@ def get_unit_vector(P1, P2):
 	#Return v as a unit vector
 	return (v[0]/length, v[1]/length, v[2]/length)
 	
+#This function makes the input vector a unit vector
+def make_unit(V):
+	
+	#Calculate length of V
+	length = sqrt(V[0]*V[0] + V[1]*V[1] + V[2]*V[2])
+	
+	#Return V as a unit vector
+	return (V[0]/length, V[1]/length, V[2]/length)
+	
 #Cross product of two vectors
 def cross(v1, v2):
 	
@@ -328,6 +337,11 @@ def cross(v1, v2):
 	
 	#Return the cross product
 	return (x,y,z)
+
+#Dot product of two vectors
+def dot(v1, v2):
+	
+	return (v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2])
 	
 #This function generates all CNT parts
 def cnt_parts_all(N_CNTs, cnt_struct, cnt_coords):
@@ -637,10 +651,17 @@ def generate_matrix_mesh(model, str_matrix, matrixMeshSize):
 	mdb.models[model].parts[str_matrix].generateMesh()
 
 #This function generates the mesh for the CNTs
-def generate_cnt_meshes(N_CNTs, cnt_struct):
+def generate_cnt_meshes(N_CNTs, cnt_struct, cnt_coords):
+	
+	#Number of accumulated points
+	acc_pts = 0
 	
 	#Go through every CNT to mesh each of them
 	for cnt_i in range(1, N_CNTs+1):
+		
+		#Number of points in CNTi and its radius
+		N_p = int(cnt_struct[cnt_i][0])
+		cnt_rad = cnt_struct[cnt_i][1]
 	
 		#Get the string for the CNT part
 		cnt_str = string_part('CNT', cnt_i)
@@ -650,8 +671,110 @@ def generate_cnt_meshes(N_CNTs, cnt_struct):
 		mdb.models['Model-1'].parts[cnt_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=cnt_struct[cnt_i][1])
 		mdb.models['Model-1'].parts[cnt_str].generateMesh()
 		
+		#Get the number of nodes generated
+		num_nodes = mdb.models['Model-1'].parts[cnt_str].getMeshStats((mdb.models['Model-1'].parts[cnt_str].cells,)).numNodes
+		#print(cnt_str,' nodes=', num_nodes)
+		
+		#Check the number of nodes in the mesh
+		if num_nodes == 0:
+			
+			#The CNT was not meshed
+			#Cut the CNT cell and mesh again
+			partition_cnt_cell(cnt_rad, acc_pts, acc_pts+N_p-1, cnt_coords, cnt_str)
+			
+			#Try to mesh again
+			mdb.models['Model-1'].parts[cnt_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=cnt_struct[cnt_i][1])
+			mdb.models['Model-1'].parts[cnt_str].generateMesh()
+			
+		#Increase the number of accumulated points
+		acc_pts += N_p
+		
 	#This seems to be required by Abaqus
 	mdb.models['Model-1'].rootAssembly.regenerate()
+	
+#This function cuts a CNT cell when it could not be meshed
+def partition_cnt_cell(cnt_rad, cnt_start, cnt_end, cnt_coords, str_part):
+	
+	#Half of the cylinder height
+	hc = cnt_rad*0.1
+	
+	#Iterate over the CNT points, starting on the secont point and finishing on the previous to last point
+	for i in range(cnt_start+1, cnt_end): 
+		
+		#print('i=',i-cnt_start,' cells=', len(mdb.models['Model-1'].parts[str_part].cells))
+		
+		#Get the points of the CNT segments that share point i
+		#End point of first CNT segment
+		P1 = cnt_coords[i-1]
+		#Point shared by both CNT segments
+		P2 = cnt_coords[i]
+		#End point of second CNT segment
+		P3 = cnt_coords[i+1]
+		
+		#Get the unit vector of first CNT segment
+		v1 = get_unit_vector(P2, P1)
+		
+		#Get the unit vector of second CNT segment
+		v2 = get_unit_vector(P2, P3)
+		
+		#Calculate the dot product of v1 and v2 to obtain the cosine of the angle between them
+		#Need the dot product with negative sign
+		cosV = - dot(v1,v2)
+		
+		#Check if need to cut the cell at point P2
+		if cosV < cos45:
+			#The CNT cell needs to be cut at P2
+			
+			#Get a unit vector that goes along the plane that bisects the angle 
+			#between v1 and v2
+			vm = make_unit((v1[0]+v2[0], v1[1]+v2[1], v1[2]+v2[2]))
+			#print('vm')
+			
+			#Vector normal to v1, v2, and vm (all three lie on the same plane)
+			N3 = cross(v2, v1)
+		
+			#Get the normal for the plane at the midpoint
+			#Since both v1 and vm are unit vectors, N is also a unit vector
+			N = cross(N3, vm)
+			
+			#Calculate a displacement to set the points of the cylinder
+			disp = (N[0]*hc, N[1]*hc, N[2]*hc)
+			
+			#Calculate first point of Cylinder height
+			C1 = (P2[0]+disp[0], P2[1]+disp[1], P2[2]+disp[2])
+			
+			#Calculate second point of Cylinder height
+			C2 = (P2[0]-disp[0], P2[1]-disp[1], P2[2]-disp[2])
+			
+			#Calculate vector along the plane
+			#Since both v1 and vm are unit vectors, S is also a unit vector
+			S = cross(N3, v1)
+
+			#Calculate the radius of the cylinder that will be used to select the points needed to cut the cell
+			#Also increase the radius 0.5% so that vertices are not missed die to numerical erros
+			rad_cyl = cnt_rad*1.005/(-dot(vm, S))
+			#print('rad_cyl=',rad_cyl)
+			
+			#Select the edges enclosed by the cylinder with centerpoints C1 and C2 and radius rad_cyl
+			octagon = mdb.models['Model-1'].parts[str_part].edges.getByBoundingCylinder(center1=C1, center2=C2, radius=rad_cyl)
+			#print('i=',i-cnt_start-1," octagon.len=",len(octagon))
+			#print(octagon)
+			#print(octagon[0])
+			#print(octagon[1])
+			#For some reason, the selected edges are not a tuple
+			#Thus, create a tuple with the edges of the octagon
+			octagon_edges = (octagon[0], octagon[1], octagon[2], octagon[3], octagon[4], octagon[5], octagon[6], octagon[7])
+			
+			#Datum points for testing
+			#if i == cnt_start+1:
+			#	for j in range(len(octagon)):
+			#		mdb.models['Model-1'].parts[str_part].DatumPointByCoordinate(coords=octagon[j].pointOn[0])
+			
+			#Use the octagon edges in the tuple to partition the cell
+			mdb.models['Model-1'].parts[str_part].PartitionCellByPatchNEdges(
+				cell=mdb.models['Model-1'].parts[str_part].cells.findAt(P3, ),
+				edges=octagon_edges
+			)
 
 #This function generates the mesh for the GSs
 def generate_gs_meshes(N_GSs, model, code, meshSize):
@@ -1104,7 +1227,7 @@ generate_matrix_mesh(modelName, str_matrix, matrixMeshSize)
 if N_CNTs != 0:
 	
 	#Generate mesh for CNTs
-	generate_cnt_meshes(N_CNTs, cnt_struct)
+	generate_cnt_meshes(N_CNTs, cnt_struct, cnt_coords)
 	
 	#Create sets for central CNT nodes
 	#NOTE: Sets are generated on root assembly

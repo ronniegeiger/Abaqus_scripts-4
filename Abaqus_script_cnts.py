@@ -827,7 +827,7 @@ create_step_and_bcs(str_matrix, disp)
 
 #Generate meshes
 generate_matrix_mesh(str_matrix, Lxyz, cnt_rad_max)
-generate_cnt_meshes(N_CNTs, cnt_struct)
+generate_cnt_meshes(N_CNTs, cnt_struct, cnt_coords)
 
 #Create sets for the matrix (sample in the C++ code)
 #NOTE: Sets are generated on root assembly
