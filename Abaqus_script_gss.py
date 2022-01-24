@@ -678,7 +678,7 @@ def Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, numG
             #the GS is partially outside the RVE
             #AND
             #(if so) the GS was actually meshed, which is done by checking the number of meshed regions
-            if partOut and mdb.models[modelName].rootAssembly.getMeshStats((GS_model.rootAssembly.instances[gs_inst_str],)).numMeshedRegions == 0:
+            if partOut and mdb.models[modelName].rootAssembly.getMeshStats((mdb.models[modelName].rootAssembly.instances[gs_inst_str],)).numMeshedRegions == 0:
                 
                 #Mesh a GS that is partially outside the RVE
                 Remesh_partial_GS(modelName, gs_part_str, selectedElementCode, eeMeshSize)
@@ -712,7 +712,7 @@ def Remesh_partial_GS(modelName, gs_part_str, selectedElementCode, eeMeshSize):
                 
     #Set tetrahedron elements in mesh controls
     mdb.models[modelName].parts[gs_part_str].setMeshControls(
-        elemShape=TET, regions=GS_model.parts[gs_part_str].cells.getSequenceFromMask(('[#1 ]',), ), technique=FREE)
+        elemShape=TET, regions=mdb.models[modelName].parts[gs_part_str].cells.getSequenceFromMask(('[#1 ]',), ), technique=FREE)
 
     #Set the element type
     mdb.models[modelName].parts[gs_part_str].setElementType(
@@ -720,7 +720,7 @@ def Remesh_partial_GS(modelName, gs_part_str, selectedElementCode, eeMeshSize):
             ElemType(elemCode=selectedElementCode[0], elemLibrary=elementLibrary[selectedLibrary], secondOrderAccuracy=OFF, distortionControl=DEFAULT),
             ElemType(elemCode=selectedElementCode[1], elemLibrary=elementLibrary[selectedLibrary], secondOrderAccuracy=OFF, distortionControl=DEFAULT),
             ElemType(elemCode=selectedElementCode[2], elemLibrary=elementLibrary[selectedLibrary], secondOrderAccuracy=OFF, distortionControl=DEFAULT)),
-        regions=(GS_model.parts[gs_part_str].cells.getSequenceFromMask(('[#1 ]',), ), ))
+        regions=(mdb.models[modelName].parts[gs_part_str].cells.getSequenceFromMask(('[#1 ]',), ), ))
 
     #Seed the part
     mdb.models[modelName].parts[gs_part_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=eeMeshSize)
