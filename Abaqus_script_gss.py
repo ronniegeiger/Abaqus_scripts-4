@@ -12,68 +12,38 @@ from sketch import *
 from visualization import *
 from connectorBehavior import *
 
+import numpy as np
+import os
 import math
 import csv
+import multiprocessing
+import time
 
-##########################################---VARIABLES---##########################################
+########################################---VARIABLES---#######################################
 
-#Add the path of the .csv file
-gs_file = 'C:\Users\grafenicas\Documents\CNTs_embedde_elements\Job-testing-GS\gnp_data.csv'
-sample_file = 'C:\Users\grafenicas\Documents\CNTs_embedde_elements\Job-testing-GS\sample_geom.csv'
-    
-#Define the string for the name of the matrix part
-str_matrix = 'Matrix'
+###################### Files
+#Name of the .csv file with the GS parameters (needs to be in the same work directory as Abaqus)
+#csv_gnpFile = 'gnp_data_702'
+csv_gnpFile = 'gnp_data.csv'
+#Name of the .csv file with the RVE geometry parameters (needs to be in the same work directory as Abaqus)
+#csv_geomFile = 'sample_geom_5'
+csv_geomFile = 'sample_geom.csv'
 
-#String for the host set (i.e., the matrix)
-str_host = 'host_Set'
-
-#Define the sheetsize for the drawing space
-sheetSize = 20.0
-#Mesh size for the matrix (um)
-matrixMeshSize = 2
-#Define the EmbeddedMesh/HostMesh ratio
-meshRatio = 0.75
-#Temperature difference (C)
-tempApplied = 50.0
-
-#Define the name of the matrix
-matrixMaterial = 'Polypropylene'
-matrixSection = 'Matrix_sec'
-#Define the mass density (kg/m3)
-matrixDensity = 905
-#Define the elastic modulus (GPa)
-matrixModulus = 1.3
-#Define the Poisson ratio
-matrixPoissonR = 0.42
-#Define de coefficient of thermal expansion (e-5 1/C)
-matrixExpCoeff = 10.5
-#Define the thermal conductivity (W/m*K)
-matrixThermConductivity = 0.19
-#Define the specific heat (J/mol*K)
-matrixSpecHeat = 75
-#Define the electrical conductivity (S/m)
-matrixElecConductivity = 200
-
-#Define the name of the filler
-gsMaterial = 'Graphene'
-gsSection = 'Graphene-sec'
-#Define the mass density (kg/m3)
-gsDensity = 2200
-#Define the elastic modulus (GPa)
-gsModulus = 1000
-#Define the Poisson ratio
-gsPoissonR = 0.165
-#Define de coefficient of thermal expansion (e-5 1/C)
-gsExpCoeff = 0.5
-#Define the thermal conductivity (W/m*K)
-gsThermConductivity = 3000
-#Define the specific heat (J/mol*K)
-gsSpecHeat = 7
-#Define the electrical conductivity (S/m)
-gsElecConductivity = 1e7
-
-#Displacement to be applied (microns)
-disp = -0.15
+###################### Mesh flags and variables
+#Number of elements per side of the RVE
+elementsPerSide = 20
+#EmbeddedMesh/HostMesh ratio
+meshRatio = 0.5
+#Mesh the model:
+# 0 = no
+# 1 = yes
+meshModel = 1
+#Re-mesh model
+#This flag is used to decide whether files are generated with GNP indices for
+#those inside and outside the RVE
+# 0 = do not generate files
+# 1 = generate files
+reMeshModel = 0
 
 #Analsys type for the element
 # 1 = coupled temperature-displacement
@@ -82,10 +52,129 @@ disp = -0.15
 # 4 = only displacement
 elemTypeCode = 4
 
-##########################################---CONSTANT---##########################################
-rad_to_deg = 180/math.pi
+#Element library:
+# 0 = Standard
+# 1 = Explicit (Explicit only works with coupled temperature-displacement elements)
+selectedLibrary = 0
+#Geometric order:
+# 0 = Linear
+# 1 = Cuadratic
+selectedGeomOrder = 0
 
-######################################---ABAQUS FUNCTIONS---########################################
+#Element types
+elemTemp_Disp = [C3D8T, C3D6T, C3D4T]
+elemTemp_Elec_Disp = [Q3D8, Q3D6, Q3D4]
+elemTemp_Elec = [DC3D8E, DC3D6E, DC3D4E]
+elemTemp_Disp_Quadratic = [C3D20RT, UNKNOWN_WEDGE, C3D10MT]
+elem_Disp = [C3D8R, C3D6, C3D4]
+
+###################### Job flags
+#Create job:
+# 0 = no
+# 1 = yes
+createJob = 1
+#Job name
+#jobName = 'Test_GS_12'
+#Submit job: 
+# 0 = no
+# 1 = yes
+submitJob = 1
+
+###################### Boundary conditions
+#Temperature difference (C)
+tempApplied = 75.0
+#Displacement flags
+#These flags inidicate if displacement is applied in a direction
+# False = no displacement
+# True = displacement as indicated in the variable for displacement
+dispXflag = True
+dispYflag = False
+dispZflag= False
+dispX = 0.5
+dispY = 0.0
+dispZ = 0.0
+
+###################### Matrix properties
+#Define the name of the matrix
+matrixMaterial = 'Polypropylene'
+#Matrix name
+matrixName = 'MATRIX'
+#Define the mass density (kg/m3)
+matrixDensity = 900
+#Define the elastic modulus (GPa)
+matrixModulus = 0.59
+#Define the Poisson ratio
+matrixPoissonR = 0.42
+#Define de coefficient of thermal expansion (e-5 1/C)
+matrixExpCoeff = 18
+#Define the electrical conductivity (S/m)
+matrixElecConductivity = 320e-15
+#Define the thermal conductivity (W/m*K) - Because of Abaqus needs, but doesn't affect the thermo-mechanical simulation (could be = 1)
+matrixThermConductivity = 0.19
+#Define the specific heat (J/mol*K) - Because of Abaqus needs, but doesn't affect the thermo-mechanical simulation (could be = 1)
+matrixSpecHeat = 75
+
+###################### Nanofiller properties
+#Define the name of the filler
+fillerMaterial = 'Graphene'
+#Define the mass density (kg/m3)
+fillerDensity = 2200
+#Define the elastic modulus (GPa) - 1000
+fillerModulus = 1029
+#Define the Poisson ratio - 0.165
+fillerPoissonR = 0.149
+#Define de coefficient of thermal expansion (e-5 1/C)
+fillerExpCoeff = 0.5
+#Define the electrical conductivity (S/m)
+fillerElecConductivity = 10e7
+#Define the thermal conductivity (W/m*K) - Because of Abaqus needs, but doesn't affect the thermo-mechanical simulation (could be = 1)
+fillerThermConductivity = 3000
+#Define the specific heat (J/mol*K) - Because of Abaqus needs, but doesn't affect the thermo-mechanical simulation (could be = 1)
+fillerSpecHeat = 7
+
+###################### Step flags and variables
+#Step name
+stpName = 'Step_name'
+#Step basics
+# Inclusion of nonlinear effects: 
+# 0 = OFF
+# 1 = ON
+nonlinearGeom = 0
+# Total time period for the step
+tPeriod = 1
+#Increment size
+# Max. temperature change
+deltaIncrement = 1
+# Initial increment size
+inicialIncrement = 0.01
+# Minimum increment size
+minIncrement = 1e-15
+#Maximum number of increments
+maxNumIncrement = 100000
+#Amplitude variation for loading magnitudes during the step
+# 0 = Step
+# 1 = Ramp
+loadVariation = 0
+#Step parameters
+nonlinearGeomBool = [OFF, ON]
+variationMagnitudes = [STEP, RAMP]
+
+#Selecting the desired element library
+elementLibrary = [STANDARD, EXPLICIT]
+
+###################### CAD variables
+#Bigger box name
+biggerBoxName = 'BIGGER_BOX'
+#Name of the analysis model (unchangeable)
+modelName = 'Model-1'
+#Sheetsize for the drawing space
+sheetSize = 1.0
+
+###################### Constants
+#Conversion factor feom radians to degrees
+rad2deg = 180/math.pi
+
+######################################---STRING FUNCTIONS---########################################
 
 #This function generates a string for the filler part
 def string_part(filler, i):
@@ -105,118 +194,156 @@ def gs_string_node_set(gs_i):
 def ee_string(filler, i):
     return 'EE-%s-%d'%(filler, i)
 
+###################################---ABAQUS FUNCTIONS---#####################################
+
+#Select the element type based on the choice of geometric order
+def Select_Elemet_Type(selectedGeomOrder):
+    
+    #Identify the geometric order
+    if selectedGeomOrder == 0:
+        if elemTypeCode == 1:
+            return elemTemp_Disp
+        elif elemTypeCode == 2:
+            return elemTemp_Elec_Disp
+        elif elemTypeCode == 3:
+            return elemTemp_Elec
+        elif elemTypeCode == 4:
+            return elem_Disp
+        else:
+            print('WARNING. Invalid element type. Elment type code was set to displacement elements (elemTemp_Disp)')
+            return elem_Disp
+    elif selectedGeomOrder == 1:
+        if elemTypeCode == 1:
+            return elemTemp_Disp_Quadratic
+    else:
+        print('WARNING. Invalid geometric order. Geometric order was set to linear. Elment type code was set to displacement elements (elemTemp_Disp)')
+        return elem_Disp
+
 #Create matrix
-def matrix_part(P0, Lxyz, str_matrix, sheetsz):
-    
-    #Create a sketch
-    mdb.models['Model-1'].ConstrainedSketch(name='__profile__', sheetSize=sheetsz)
-    
+def Create_Matrix(model, sheetsz, part, P0, Lxyz):
+
+    #Create the matrix geometry
+    mdb.models[model].ConstrainedSketch(name='__profile__', sheetSize=sheetsz)
     #Define the two corners of a rectangle on the xy plane
-    mdb.models['Model-1'].sketches['__profile__'].rectangle(
+    mdb.models[model].sketches['__profile__'].rectangle(
         point1=(P0[0], P0[1]), point2=(P0[0]+Lxyz[0], P0[1]+Lxyz[1]))
-        
     #Name the part
-    mdb.models['Model-1'].Part(dimensionality=THREE_D, name=str_matrix, type= DEFORMABLE_BODY)
+    mdb.models[model].Part(dimensionality=THREE_D, name=part, type=DEFORMABLE_BODY)
     
     #Use the length along the z-direction as the extrusion depth
-    mdb.models['Model-1'].parts[str_matrix].BaseSolidExtrude(depth=Lxyz[2], sketch=
-        mdb.models['Model-1'].sketches['__profile__'])
-        
+    mdb.models[model].parts[part].BaseSolidExtrude(
+        depth=Lxyz[2], sketch=mdb.models[model].sketches['__profile__'])
     #Delete the sketch
-    del mdb.models['Model-1'].sketches['__profile__']
+    del mdb.models[model].sketches['__profile__']
 
-def Create_BiggerBox(model, sheetsz, part, length):
-
-    GS_geometry = data[1]
+#Create a box bigger than the RVE, which is used to trim the GNPs
+def Create_BiggerBox(model, sheetsz, part, P0, Lxyz, data_gnp):
     
-    #Get the length along each direction
+    #Get the geometric parameters of the first GNP
+    GS_geometry = data_gnp[1]
+    
+    #Get the dimensions of the first GNP
+    length_x = GS_geometry[0]
+    length_y = GS_geometry[1]
+    thickness = GS_geometry[2]
+    
+    #Calculate the diagonal of the first GNP
+    margin = math.ceil(math.sqrt(length_x*length_x+length_y*length_y+thickness*thickness))
+    
+    #The length of the bigger box along each direction is the same as the RVE plus the margin
+    lengthBiggerBox_x = Lxyz[0]+2*margin
+    lengthBiggerBox_y = Lxyz[1]+2*margin
+    lengthBiggerBox_z = Lxyz[2]+2*margin
+
+    #Create the geometry for the bigger box
+    mdb.models[model].ConstrainedSketch(name='__profile__', sheetSize=sheetsz)
+    mdb.models[model].sketches['__profile__'].rectangle(
+        point1=(P0[0], P0[1]), point2=(lengthBiggerBox_x, lengthBiggerBox_y))
+    mdb.models[model].Part(dimensionality=THREE_D, name=part, type=DEFORMABLE_BODY)
+
+    mdb.models[model].parts[part].BaseSolidExtrude(
+        depth=lengthBiggerBox_z, sketch=mdb.models[model].sketches['__profile__'])
+    del mdb.models[model].sketches['__profile__']
+
+#Create the hollow box that is used to cut all GS that are partially outside the RVE
+def Create_CuttingBox(model, partMatrix, partBox):
+    GS_geometry = data_gnp[1]
+
     length_x = GS_geometry[0]
     length_y = GS_geometry[1]
     thickness = GS_geometry[2]
 
     margin = math.ceil(math.sqrt(length_x*length_x+length_y*length_y+thickness*thickness))
-    lengthBiggerBox = length+2*margin
-
-    #Create the matrix geometry
-    mdb.models[model].ConstrainedSketch(name='__profile__', sheetSize=sheetsz)
-    mdb.models[model].sketches['__profile__'].rectangle(point1=(0.0, 0.0), point2=(lengthBiggerBox, lengthBiggerBox))
-    mdb.models[model].Part(dimensionality=THREE_D, name=part, type=DEFORMABLE_BODY)
-
-    mdb.models[model].parts[part].BaseSolidExtrude(depth=lengthBiggerBox, sketch=mdb.models[model].sketches['__profile__'])
-    del mdb.models[model].sketches['__profile__']
-
-#Create graphene sheet
-def gs_parts_all(N_GSs, gs_data, modelName, sheetSize):
     
-    #Loop to define the number of graphene sheets to create
-    for i in range(N_GSs):
+    #Create an instance of the bigger box
+    mdb.models[model].rootAssembly.Instance(dependent=OFF, name=partBox + '-1', 
+        part=mdb.models[model].parts[partBox])
+    mdb.models[model].rootAssembly.translate(instanceList=(partBox + '-1', ), 
+        vector=(-margin, -margin, -margin))
+    
+    #Create the hollow box by cutting the matrix off of the bigger box
+    mdb.models[model].rootAssembly.InstanceFromBooleanCut(
+        cuttingInstances=(
+            mdb.models[model].rootAssembly.instances[partMatrix + '-1'], ),
+        instanceToBeCut=mdb.models[model].rootAssembly.instances[partBox + '-1'],
+        name='CUTTER',
+        originalInstances=SUPPRESS)
+
+    mdb.models[model].rootAssembly.features[partMatrix + '-1'].resume()
+
+#Create all parts and instances for GSs
+def Create_All_GSs(modelName, fillerMaterial, sheetSize, n_gs, P0, corner):
+
+    #Iterate over all GSs in the RVE
+    for numPart in range(n_gs):
         
-        #Create a graphene sheet
-        Create_GS(gs_data[i], modelName, sheetSize, i)
-        #Create_NodeSet_Gs(modelName, numPart)    
+        #Generate the part and instance name of the current GNP
+        gs_part_str = string_part('GS', numPart)
+        gs_inst_str = string_instance('GS', numPart)
+        
+        #Create a GS part
+        Create_GS(modelName, sheetSize, numPart, gs_part_str)
+        
+        #Generate GNP instance
+        mdb.models[modelName].rootAssembly.Instance(
+            dependent=ON, name=gs_inst_str,
+            part=mdb.models[modelName].parts[gs_part_str])
+        
+        #Create a set for each vertex of each GS
+        GS_Instances_NodeSet(modelName, gs_part_str, gs_inst_str)
+        
+        #Move every GS to its right place in the RVE and then cut it (if its partially outside)
+        Translate_Rotate_and_Cut_GS(modelName, numPart, P0, corner, gs_part_str, gs_inst_str)
+        
+        #Assign material to GS
+        Assign_Section(modelName, fillerMaterial, gs_part_str)
     
-def Create_GS(GS_geometry, model, sheetsz, numPart):
-    
-    #Get the length along each direction
-    length_x = GS_geometry[0]
-    length_y = GS_geometry[1]
-    thickness = GS_geometry[2]
-    
-    #Calculate half length along x and y directions
-    half_x = length_x/2.0
-    half_y = length_y/2.0
-    
-    #Get the part name
-    str = string_part('GS', numPart)
+#Create GS
+def Create_GS(model, sheetsz, gnp_i, gs_part_str):
 
+    #Get the dimensions needed to draw the GS
+    half_x = data_gnp[gnp_i][0]/2.0
+    half_y = data_gnp[gnp_i][1]/2.0
+    thickness = data_gnp[gnp_i][2]
+    
+    #Set up the sketch
     mdb.models[model].ConstrainedSketch(name='__profile__', sheetSize=sheetsz)
+    #Draw the base of the paralellepiped
     mdb.models[model].sketches['__profile__'].rectangle(
-        point1=(-half_x, -half_y), 
-        point2=( half_x,  half_y))
-    mdb.models[model].Part(dimensionality=THREE_D, name=str, type=DEFORMABLE_BODY)
-    mdb.models[model].parts[str].BaseSolidExtrude(depth=thickness, sketch=mdb.models[model].sketches['__profile__'])
+        point1=(-half_x, -half_y),
+        point2=(half_x, half_y))
+    #Name the part
+    mdb.models[model].Part(dimensionality=THREE_D, name=gs_part_str, type=DEFORMABLE_BODY)
+    #Extrude the base
+    mdb.models[model].parts[gs_part_str].BaseSolidExtrude(
+    depth=thickness, sketch=mdb.models[model].sketches['__profile__'])
+    #Delete sketch
     del mdb.models[model].sketches['__profile__']
 
-#This function creates the matrix material and assigns it to a section
-def materials_and_sections_matrix(modelName, str_matrix, matrixMaterial, matrixSection, matrixDensity, matrixModulus, matrixPoissonR):
-    
-    #Create matrix material
-    mdb.models[modelName].Material(description='Polymer', name=matrixMaterial)
-    mdb.models[modelName].materials[matrixMaterial].Elastic(table=((matrixModulus, matrixPoissonR), ))
-    
-    #Assign material to section
-    create_section(modelName, matrixMaterial, matrixSection)
-    
-    #Assign section to matrix
-    #print('cells=',len(mdb.models['Model-1'].parts[str_matrix].cells))
-    mdb.models[modelName].parts[str_matrix].SectionAssignment(offset=0.0, offsetField='', offsetType=MIDDLE_SURFACE, 
-        region=Region(cells=mdb.models[modelName].parts[str_matrix].cells), 
-        sectionName=matrixSection, thicknessAssignment=FROM_SECTION)
-
-#This function creates the GS material and assigns it to a section
-def materials_and_sections_gs(N_GSs, gsMaterial, gsSection, gsDensity, gsModulus, gsPoissonR):
-    
-    #Create GS material
-    mdb.models['Model-1'].Material(name=gsMaterial)
-    mdb.models['Model-1'].materials[gsMaterial].Elastic(table=((gsModulus, gsPoissonR), ))
-    
-    #Assign material to section
-    create_section('Model-1', gsMaterial, gsSection)
-    
-    #Iterate over the CNTs
-    for gs_i in range(N_GSs):
-    
-        #Get the string for the GS part
-        gs_str = string_part('GS', gs_i)
-        
-        #Assign the CNT section to gs_i
-        mdb.models['Model-1'].parts[gs_str].SectionAssignment(
-            offset=0.0, offsetField='', offsetType=MIDDLE_SURFACE, 
-            region=Region(cells=mdb.models['Model-1'].parts[gs_str].cells.getSequenceFromMask(mask=('[#1 ]', ), )),
-            sectionName=gsSection, thicknessAssignment=FROM_SECTION)
-        
 #Create material and assign the properties
 def Create_Material(model, materialName, massDensity, elasModulus, poissonRatio, expanCoefficient, thermConductivity, specHeat, elecConductivity):
+    
+    #Assign the material properties required by Abaqus
     mdb.models[model].Material(name=materialName)
     mdb.models[model].materials[materialName].Density(table=((massDensity, ), ))
     mdb.models[model].materials[materialName].Elastic(table=((elasModulus*1e9, poissonRatio), ))
@@ -225,328 +352,265 @@ def Create_Material(model, materialName, massDensity, elasModulus, poissonRatio,
     mdb.models[model].materials[materialName].SpecificHeat(table=((specHeat, ), ))
     mdb.models[model].materials[materialName].ElectricalConductivity(table=((elecConductivity, ), ))
 
-#Create section
-def create_section(model, materialName, sectionName):
+#Create material section
+def Create_Section(model, materialName):
     mdb.models[model].HomogeneousSolidSection(
         material=materialName, 
-        name=sectionName, 
+        name=materialName, 
         thickness=None)
-   
-#This function generates all instances and the assembly  
-def generate_assembly(N_GSs, model, str_matrix, gs_data):
+
+#Assign section to part
+def Assign_Section(model, materialName, part_str):
+
+    mdb.models[model].parts[part_str].SectionAssignment(
+        offset=0.0, 
+        offsetField='', 
+        offsetType=MIDDLE_SURFACE, 
+        region=Region(cells=mdb.models[model].parts[part_str].cells),
+        sectionName=materialName, 
+        thicknessAssignment=FROM_SECTION) 
+
+#Translate and rotate the GS
+def Translate_Rotate_and_Cut_GS(model, i, P0, corner, gs_part_str, gs_inst_str):
     
-    #Necessary command to create assembly
-    mdb.models[model].rootAssembly.DatumCsysByDefault(CARTESIAN)
-    
-    #Generate name for matrix instance
-    str_mat_inst = '%s-1' % (str_matrix)
-    
-    #Create instance for matrix
-    mdb.models[model].rootAssembly.Instance(dependent=ON, name=str_mat_inst,
-        part=mdb.models[model].parts[str_matrix]) 
-    
-    #Create instances for each GS
-    for i in range(N_GSs):
-        
-        #Generate name for part
-        str_part = string_part('GS', i)
-        
-        #Generate name for instance
-        str_inst = string_instance('GS', i)
-        
-        #Generate part instance
-        mdb.models[model].rootAssembly.Instance(dependent=ON, name=str_inst,
-            part=mdb.models[model].parts[str_part])
-        
-        #Apply translation and rotation to GS to get its final position 
-        Translate_and_Rotate_GS(model, i, str_inst, gs_data[i])
-        
-        #Check if GS is partially outside the sample and cut it if so
-        #Cut_GS(model, i, str_inst, str_part)
-    
-#Rotate the graphene sheets
-def Translate_and_Rotate_GS(model, i, str_inst, GS_parameters):
-    
-    #Get the paramters for translation and rotation (for readability of the script)
-    thickness = GS_parameters[2]
-    y_angle = GS_parameters[3]*rad_to_deg
-    z_angle = GS_parameters[4]*rad_to_deg
-    final_point = GS_parameters[5:]
+    checkOutside = False
+
+    GS_assembly = mdb.models[model].rootAssembly
+
+    #Get all vertices from a graphene sheet
+    GS_vertex = GS_assembly.instances[gs_inst_str].vertices
+
+    #thickness = data_gnp[i][2]
+    #y_angle = data_gnp[i][3]*(180/math.pi)
+    #z_angle = data_gnp[i][4]*(180/math.pi)
+    #final_point = data_gnp[i][5:]
 
     #Translate GS centroid (x0,y0,z0) to the origin
-    #i.e: endpoint - starting point = (0,0,0) - (x0,y0,z0)
-    mdb.models[model].rootAssembly.translate(
-        instanceList=(str_inst, ), 
-        vector=(0.0, 0.0, -thickness/2))
+    #I.e: endpoint - starting point = (0,0,0) - (x0,y0,z0)
+    GS_assembly.translate(
+        instanceList=(gs_inst_str, ),
+        vector=(0.0, 0.0, -data_gnp[i][2]/2.0))
 
     #Rotation in y-axis
-    mdb.models[model].rootAssembly.rotate(
-        angle = y_angle, 
+    GS_assembly.rotate(
+        angle = data_gnp[i][3]*rad2deg,
         axisDirection=(0.0, 1.0, 0.0), 
         axisPoint=(0.0, 0.0, 0.0), 
-        instanceList=(str_inst, ))
+        instanceList=(gs_inst_str, ))
 
     #Rotation in z-axis
-    mdb.models[model].rootAssembly.rotate(
-        angle = z_angle, 
+    GS_assembly.rotate(
+        angle = data_gnp[i][4]*rad2deg,
         axisDirection=(0.0, 0.0, 1.0), 
         axisPoint=(0.0, 0.0, 0.0), 
-        instanceList=(str_inst, ))
+        instanceList=(gs_inst_str, ))
 
     #Translate GS centroid (currently in the origin) to its new position (x1,y1,z1)
     #I.e: endpoint - starting point = (x1,y1,z1) - (0,0,0)
-    mdb.models[model].rootAssembly.translate(
-        instanceList=(str_inst, ), 
-        vector=final_point)
+    GS_assembly.translate(
+        instanceList=(gs_inst_str, ),
+        vector=data_gnp[i][5:])
 
-    # mdb.models['Model-1'].parts['GS-0'].Set(name='SET-GS-0', nodes=mdb.models['Model-1'].parts['GS-0'].nodes.getSequenceFromMask(mask=(
-    #     '[#20301 #0 #201000 #0 #3010000 #2 ]', ), ))
-
-def Create_CuttingBox(model, partMatrix, partBox, GS_geometry):
+    #Cut the GS:
     
-    #Get the paramters for cutting a GSs (for readability of the script)
-    length_x = GS_geometry[0]
-    length_y = GS_geometry[1]
-    thickness = GS_geometry[2]
-
-    margin = math.ceil(math.sqrt(length_x*length_x+length_y*length_y+thickness*thickness))
-
-    mdb.models[model].rootAssembly.Instance(dependent=OFF, name=partBox + '-1', 
-        part=mdb.models[model].parts[partBox])
-    mdb.models[model].rootAssembly.translate(instanceList=(partBox + '-1', ), 
-        vector=(-margin, -margin, -margin))
-
-    mdb.models[model].rootAssembly.InstanceFromBooleanCut(cuttingInstances=(
-        mdb.models[model].rootAssembly.instances[partMatrix + '-1'], ), 
-        instanceToBeCut=
-        mdb.models[model].rootAssembly.instances[partBox + '-1'], name='CUTTER'
-        , originalInstances=SUPPRESS)
-
-    mdb.models[model].rootAssembly.features[partMatrix + '-1'].resume()
-
-indexOutside = []
-indexInside = []
-
-def Cut_GS(model, i, str_inst, str_part):
+    #Iterate over the GNP vertices
+    for numVertex in range(8):
     
-    #Get the root assembly
-    GS_assembly = mdb.models[model].rootAssembly
-    
-    #Get all vertices from a graphene sheet
-    GS_vertex = GS_assembly.instances[str_inst].vertices
-    
-    #Initialize with false
-    checkOutside = False
-    
-    for numVertex in range(0,8):
-        #Get coordinates of a specific vertex from a graphene sheet
+        #Get coordinates of a current vertex from GNP
+        #I THINK THIS CAN BE SIMPLIFIED
         GS_vertex_coord = GS_assembly.getCoordinates(GS_vertex[numVertex])
-
-        for indexCoord in range(0,3):
-
-            if GS_vertex_coord[indexCoord] > matrixLength or  GS_vertex_coord[indexCoord] < 0:
-                checkOutside = True
-                break
         
-        if checkOutside == True:
+        #Check if the current vertex is outside the RVE
+        checkOutside = Is_Point_Outside_RVE(P0, corner, GS_vertex_coord)
+        if checkOutside:
+            
+            #Since the current vertex is outside the RVE, trim it
             GS_assembly.InstanceFromBooleanCut(
                 cuttingInstances=(GS_assembly.instances['CUTTER-1'], ), 
-                instanceToBeCut=GS_assembly.instances[str_inst], name=str_part, 
+                instanceToBeCut=GS_assembly.instances[gs_inst_str], name=gs_part_str,
                 originalInstances=SUPPRESS)
             GS_assembly.features['CUTTER-1'].resume()
-
+            
+            #Add current GNP number to the list of GNPs that are partially outside the RVE
             indexOutside.append(i)
 
-            #Go to next GS if one coordinate of a vertex is outside RVE
+            #Termineate the for-loop as it is not needed to check if more
+            #vertices are outside the RVE
             break
 
-    if checkOutside == False:
+    if not checkOutside:
         indexInside.append(i)    
 
-    if i == numRows - 1:
+    #This seems to be needed for the last GNP
+    if i == numRows_gnp - 1:
         GS_assembly.features['CUTTER-1'].suppress()
-
-#Boundary conditions
-def Displacement_BoundaryConditions(model, matrixName):
-
-    mdb.models[model].DisplacementBC(amplitude=UNSET, createStepName='Initial', 
-        distributionType=UNIFORM, fieldName='', localCsys=None, name='BC_X', 
-        region=Region(faces=mdb.models[model].rootAssembly.instances[matrixName + '-1'].faces.getSequenceFromMask(mask=('[#1 ]', ), )), 
-        u1=SET, u2=UNSET, u3=UNSET, ur1=UNSET, ur2=UNSET, ur3=UNSET)
-
-    mdb.models[model].DisplacementBC(amplitude=UNSET, createStepName='Initial', 
-        distributionType=UNIFORM, fieldName='', localCsys=None, name='BC_Y', 
-        region=Region(faces=mdb.models[model].rootAssembly.instances[matrixName + '-1'].faces.getSequenceFromMask(mask=('[#8 ]', ), )), 
-        u1=UNSET, u2=SET, u3=UNSET, ur1=UNSET, ur2=UNSET, ur3=UNSET)
-
-    mdb.models[model].DisplacementBC(amplitude=UNSET, createStepName='Initial', 
-        distributionType=UNIFORM, fieldName='', localCsys=None, name='BC_Z', 
-        region=Region(faces=mdb.models[model].rootAssembly.instances[matrixName + '-1'].faces.getSequenceFromMask(mask=('[#20 ]', ), )), 
-        u1=UNSET, u2=UNSET, u3=SET, ur1=UNSET, ur2=UNSET, ur3=UNSET)
-
+ 
+#This function returns true if a point is outside the RVE
+def Is_Point_Outside_RVE(P0, corner, point):
+    
+    #Check if the point coordinates are inside the RVE defined by P0 and corner
+    if point[0] < P0[0] or point[0] > corner[0] or point[1] < P0[1] or point[1] > corner[1] or point[2] < P0[2] or point[2] > corner[2]:
+        
+        #At least one of the conditions was met, so the point is outside the RVE
+        return True
+    
+    #No condition was met, so the point is inside the RVE
+    return False
+ 
 #Temperature boundary conditions
-def Temperature_BoundaryConditions(model, matrixName, temp, numGS):
-    # for j in range(numGS):
-    mdb.models[model].TemperatureBC(createStepName='Initial', distributionType=
-        UNIFORM, fieldName='', magnitude=0.0, name='TEMP', region=Region(
-        cells=
-        mdb.models[model].rootAssembly.instances[matrixName + '-1'].cells.getSequenceFromMask(mask=('[#1 ]', ), )
-            # +\
-            # mdb.models[model].rootAssembly.instances['GS-%d-1' %(j)].cells.getSequenceFromMask(mask=('[#1 ]', ), )
-        ))
+def Add_Boundary_Conditions(model, temp):
     
-    mdb.models[modelName].boundaryConditions['TEMP'].setValuesInStep(magnitude=temp, stepName='Step_name')
-
-#Create the embedded elements constrains for GSs
-def create_embedded_elments_gs(N_GSs, model, matrixName, filler):
+    #Set name of the amplitude
+    ampName = 'Amp-1'
     
-    #Iterate over the GSs
-    for i in range(N_GSs):
-        
-        ##Create the constraint 
-        Create_Embedded_Elements(model, matrixName, filler, i)
-        
-#Create embedded elements
-def Create_Embedded_Elements(model, matrixName, filler, i):
-        
-    #Get the instance name
-    str_inst = string_instance(filler, i)
-        
-    #Get the string for the embedded element constraint for GS i
-    str_ee = ee_string(filler, i)
-    
-    #Add the embedded element constraint
-    mdb.models[model].EmbeddedRegion(
-        absoluteTolerance=0.0, 
-        embeddedRegion=Region(
-            cells=mdb.models[model].rootAssembly.instances[str_inst].cells.getSequenceFromMask(mask=('[#1 ]', ), )), 
-        fractionalTolerance=0.05, 
-        hostRegion=Region(
-            cells=mdb.models[model].rootAssembly.instances[matrixName + '-1'].cells.getSequenceFromMask(mask=('[#1 ]', ), )), 
-        name=str_ee, 
-        toleranceMethod=BOTH, 
-        weightFactorTolerance=1e-06)
-
-def create_step_and_pbcs(model, P0, Lxyz, str_matrix, disp):
-    
-    #Create a step with default values
-    #mdb.models['Model-1'].StaticStep(name='Step-1', previous='Initial', initialInc=0.1)
-    #Create a step with fixed step
-    mdb.models[model].StaticStep(
-        initialInc=0.1, name='Step-1', noStop=OFF, 
-        previous='Initial', timeIncrementationMethod=FIXED)
-    
-    #Calculate maximum coordinates of sample
-    xmax = P0[0] + Lxyz[0]
-    ymax = P0[1] + Lxyz[1]
-    zmax = P0[2] + Lxyz[2]
-    
-    #Calculate midpoints
-    xmid = P0[0] + 0.5*Lxyz[0]
-    ymid = P0[1] + 0.5*Lxyz[1]
-    zmid = P0[2] + 0.5*Lxyz[2]
-    
-    # Create reference points, which shuld be located outside the sample
-    RPx = mdb.models[model].rootAssembly.ReferencePoint(point=(1.5*xmax, ymid, zmid))
-    RPy = mdb.models[model].rootAssembly.ReferencePoint(point=(xmid, 1.5*ymax, zmid))
-    RPz = mdb.models[model].rootAssembly.ReferencePoint(point=(xmid, ymid, 1.5*zmax))
-    
-    #Create sets for the reference points
-    mdb.models[model].rootAssembly.Set(
-        name='RP_X', 
-        referencePoints=(mdb.models['Model-1'].rootAssembly.referencePoints[RPx.id], ))
-    mdb.models[model].rootAssembly.Set(
-        name='RP_Y', 
-        referencePoints=(mdb.models['Model-1'].rootAssembly.referencePoints[RPy.id], ))
-    mdb.models[model].rootAssembly.Set(
-        name='RP_Z', 
-        referencePoints=(mdb.models['Model-1'].rootAssembly.referencePoints[RPz.id], ))
-    
-    #Create sets for each face of the sample
-    mdb.models[model].rootAssembly.Set(
-        faces=mdb.models['Model-1'].rootAssembly.instances['Matrix-1'].faces.findAt(((xmax, ymid, zmid), )), 
-        name='F_Xp')
-    mdb.models[model].rootAssembly.Set(
-        faces=mdb.models['Model-1'].rootAssembly.instances['Matrix-1'].faces.findAt(((P0[0], ymid, zmid), )), 
-        name='F_Xn')
-    mdb.models[model].rootAssembly.Set(
-        faces=mdb.models['Model-1'].rootAssembly.instances['Matrix-1'].faces.findAt(((xmid, ymax, zmid), )), 
-        name='F_Yp')
-    mdb.models[model].rootAssembly.Set(
-        faces=mdb.models['Model-1'].rootAssembly.instances['Matrix-1'].faces.findAt(((xmid, P0[1], zmid), )), 
-        name='F_Yn')
-    mdb.models[model].rootAssembly.Set(
-        faces=mdb.models['Model-1'].rootAssembly.instances['Matrix-1'].faces.findAt(((xmid, ymid, zmax), )), 
-        name='F_Zp')
-    mdb.models[model].rootAssembly.Set(
-        faces=mdb.models['Model-1'].rootAssembly.instances['Matrix-1'].faces.findAt(((xmid, ymid, P0[2]), )), 
-        name='F_Zn')
-    
-    #Add the equations that will result in preiodic boundary conditions 
-    mdb.models[model].Equation(
-        name='Xp', terms=(( 1.0, 'F_Xp', 1), (0.5, 'RP_X', 1)))
-    mdb.models[model].Equation(
-        name='Xn', terms=((-1.0, 'F_Xn', 1), (0.5, 'RP_X', 1)))
-    mdb.models[model].Equation(
-        name='Yp', terms=(( 1.0, 'F_Yp', 2), (0.5, 'RP_Y', 2)))
-    mdb.models[model].Equation(
-        name='Yn', terms=((-1.0, 'F_Yn', 2), (0.5, 'RP_Y', 2)))
-    mdb.models[model].Equation(
-        name='Zp', terms=(( 1.0, 'F_Zp', 3), (0.5, 'RP_Z', 3)))
-    mdb.models[model].Equation(
-        name='Zn', terms=((-1.0, 'F_Zn', 3), (0.5, 'RP_Z', 3)))
-    
-    #Create a table to obtain different steps of the simulation
-    #mdb.models['Model-1'].TabularAmplitude(
-    #    data=((0.0, 0.0), (0.1, 0.1), (0.2, 0.2), (0.3, 0.3), (0.4, 0.4), (0.5, 0.5), 
-    #        (0.6, 0.6), (0.7, 0.7), (0.8, 0.8) , (0.9, 0.9), (1.0, 1.0)), 
-    #    name='Amp-1', 
-    #    smooth=SOLVER_DEFAULT, timeSpan=STEP)
     #Create a simple amplitude
     mdb.models[model].TabularAmplitude(
         data=((0.0, 0.0), (1.0, 1.0)), 
-        name='Amp-1', 
-        smooth=SOLVER_DEFAULT, timeSpan=STEP)
-    
-    #Apply the displacement BC to 
-    mdb.models[model].DisplacementBC(
-        amplitude='Amp-1', 
-        createStepName='Step-1', 
-        distributionType=UNIFORM, 
-        fieldName='', fixed=OFF, localCsys=None, 
-        name='BC-2', 
-        region=Region(referencePoints=(mdb.models['Model-1'].rootAssembly.referencePoints[RPx.id], )), 
-        u1=disp, u2=UNSET, u3=UNSET, ur1=UNSET, ur2=UNSET, ur3=UNSET)
-    
-#This function generates the mesh for the matrix
-def generate_matrix_mesh(model, str_matrix, matrixMeshSize):
-    
-    #Mesh the matrix
-    #deviationFactor and minSizeFactor have the default values from Abaqus
-    mdb.models[model].parts[str_matrix].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=matrixMeshSize)
-    mdb.models[model].parts[str_matrix].generateMesh()
-    
-#This function generates the mesh for the GSs
-def generate_gs_meshes(N_GSs, model, code, meshSize):
-    
-    #Go through every CNT to mesh each of them
-    for i in range(N_GSs):
-    
-        #Get the string for the CNT part
-        str = string_part('GS',i)
-        
-        #Mesh GS i
-        Mesh_GS(model, str, code, meshSize)
-        
-    #This seems to be required by Abaqus
-    mdb.models[model].rootAssembly.regenerate()
+        name=ampName, 
+        smooth=SOLVER_DEFAULT, 
+        timeSpan=STEP)
 
-def Create_Embedded_Elements_CuttedGS(model, matrixName, i):
+    #Add the type of step depending on the element type, which also determines the type of study
+    if elemTypeCode == 1:
         
-    #Get the instance name
-    str_inst = string_instance('GS', i)
+        #Create themomechanical step
+        mdb.models[model].CoupledTempDisplacementStep(
+            timePeriod=tPeriod,
+            nlgeom=nonlinearGeomBool[nonlinearGeom],
+            deltmx=deltaIncrement,
+            initialInc=inicialIncrement,
+            name=stpName,
+            previous='Initial',
+            maxNumInc=maxNumIncrement,
+            minInc=minIncrement,
+            amplitude = variationMagnitudes[loadVariation])
+            
+    elif elemTypeCode == 2:
+        
+        #Create Thermoelectromechanical step
+        mdb.models[model].CoupledThermalElectricalStructuralStep(
+            timePeriod=tPeriod,
+            nlgeom=nonlinearGeomBool[nonlinearGeom],
+            deltmx=deltaIncrement,
+            initialInc=inicialIncrement,
+            name=stpName,
+            previous='Initial',
+            maxNumInc=maxNumIncrement,
+            minInc=minIncrement,
+            amplitude = variationMagnitudes[loadVariation])
+            
+    elif elemTypeCode == 3:
+        
+        #Create Thermoelectric step
+        mdb.models[model].CoupledThermalElectricStep(
+            timePeriod=tPeriod,
+            nlgeom=nonlinearGeomBool[nonlinearGeom],
+            deltmx=deltaIncrement,
+            initialInc=inicialIncrement,
+            name=stpName,
+            previous='Initial',
+            maxNumInc=maxNumIncrement,
+            minInc=minIncrement,
+            amplitude = variationMagnitudes[loadVariation])
+        
+    elif elemTypeCode == 4:
+        
+        #Name for the BC
+        bcDispName = 'BC-Disp'
+        
+        #Create mechanical step
+        mdb.models[model].StaticStep(
+            initialInc=0.1, 
+            name=stpName, 
+            noStop=OFF, 
+            previous='Initial', 
+            timeIncrementationMethod=FIXED)
+        
+        #Generate an array for the reference points to which PBCs will be applied
+        pointsPBCs = []
+        
+        #Append indicated by the flags
+        #Check if displacement along the x-direction is applied
+        if dispXflag:
+            
+            #Append reference point to apply displacement along the x-direction
+            pointsPBCs.append(mdb.models[model].rootAssembly.sets['RP_X'].referencePoints[0])
+        
+        #Check if displacement along the y-direction is applied
+        if dispYflag:
+            
+            #Append reference point to apply displacement along the y-direction
+            pointsPBCs.append(mdb.models[model].rootAssembly.sets['RP_Y'].referencePoints[0])
+        
+        #Check if displacement along the z-direction is applied
+        if dispZflag:
+            
+            #Append reference point to apply displacement along the z-direction
+            pointsPBCs.append(mdb.models[model].rootAssembly.sets['RP_Z'].referencePoints[0])
+         
+        #Apply the displacement BC to 
+        mdb.models[model].DisplacementBC(
+            amplitude=ampName, 
+            createStepName=stpName, 
+            distributionType=UNIFORM, 
+            fieldName='', 
+            fixed=OFF, 
+            localCsys=None, 
+            name=bcDispName, 
+            region=Region(referencePoints=pointsPBCs))
+        
+        #Set the displacement indicated by the flags
+        #Check if displacement along the x-direction is applied
+        if dispXflag:
+            
+            #Se the displacement BC along the x-direction
+            mdb.models[model].boundaryConditions[bcDispName].setValues(u1=dispX)
+        
+        #Check if displacement along the y-direction is applied
+        if dispYflag:
+            
+            #Se the displacement BC along the y-direction
+            mdb.models[model].boundaryConditions[bcDispName].setValues(u2=dispY)
+        
+        #Check if displacement along the z-direction is applied
+        if dispZflag:
+            
+            #Se the displacement BC along the z-direction
+            mdb.models[model].boundaryConditions[bcDispName].setValues(u3=dispZ)
     
-    #Add the embedded element constraint
+    #Add Temperature boundary condition if temperature is added
+    #This happens when the element code is not 4
+    if elemTypeCode != 4:
+        mdb.models[model].TemperatureBC(
+            createStepName='Initial', 
+            distributionType=UNIFORM, 
+            fieldName='', 
+            magnitude=0.0, 
+            name='TEMP',
+            region=mdb.models[model].rootAssembly.sets['External_Faces'])
+            
+        mdb.models[model].boundaryConditions['TEMP'].setValuesInStep(
+            magnitude=temp, stepName=stpName)
+        
+        mdb.models[model].boundaryConditions['TEMP'].setValues(amplitude=ampName)
+
+#Embedded elements
+def Create_Embedded_Elements(model, matrixName, gs_i, gs_inst_str):
+    
+    #Add embedded region to GS i
+    mdb.models[model].EmbeddedRegion(
+        absoluteTolerance=0.0, 
+        embeddedRegion=Region(cells=mdb.models[model].rootAssembly.instances[gs_inst_str].cells),
+        fractionalTolerance=0.05, 
+        hostRegion=Region(cells=mdb.models[model].rootAssembly.instances[matrixName + '-1'].cells),
+        name='Element-%d' %(gs_i),
+        toleranceMethod=BOTH, 
+        weightFactorTolerance=1e-06)
+
+#Embedded elements of the cutted GS
+def Create_Embedded_Elements_CuttedGS(model, matrixName, i):
+    
+    #Add embedded region to GS i, which lies partially outside the RVE
     mdb.models[model].EmbeddedRegion(
         absoluteTolerance=0.0, 
         embeddedRegion=Region(
@@ -558,248 +622,374 @@ def Create_Embedded_Elements_CuttedGS(model, matrixName, i):
         toleranceMethod=BOTH, 
         weightFactorTolerance=1e-06)
 
-#Mesh graphene sheets
-def Mesh_GS(model, str_part, code, meshSize):
-    mdb.models[model].parts[str_part].setElementType(
-    elemTypes=(
-        ElemType(elemCode=code[0], elemLibrary=STANDARD, secondOrderAccuracy=OFF, distortionControl=DEFAULT), 
-        ElemType(elemCode=code[1], elemLibrary=STANDARD), 
-        ElemType(elemCode=code[2], elemLibrary=STANDARD)), 
-    regions=(mdb.models[model].parts[str_part].cells.getSequenceFromMask(('[#1 ]', ), ), ))
-
-    mdb.models[model].parts[str_part].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=meshSize)
-    mdb.models[model].parts[str_part].generateMesh()
-
-#NEED TO CREATE ONE SET PER GS VERTEX
-def Create_NodeSet_Gs(model, i):
-
-    GS_geometry = data[i]
-
-    length_x = GS_geometry[0]
-    length_y = GS_geometry[1]
-    thickness = GS_geometry[2]
-
-    part_GS = mdb.models[model].parts['GS-%d' %(i)]
-
-    v = part_GS.vertices.getClosest(coordinates=((length_x/2,length_y/2,thickness),(-length_x/2,length_y/2,thickness),(-length_x/2,-length_y/2,thickness),
-    (length_x/2,-length_y/2,thickness),(length_x/2,length_y/2,0),(-length_x/2,length_y/2,0),(-length_x/2,-length_y/2,0),(length_x/2,-length_y/2,0),)) 
-
-    v1 = part_GS.vertices.findAt((((v[0][1])),))
-    v2 = part_GS.vertices.findAt((((v[1][1])),))
-    v3 = part_GS.vertices.findAt((((v[2][1])),))
-    v4 = part_GS.vertices.findAt((((v[3][1])),))
-    v5 = part_GS.vertices.findAt((((v[4][1])),))
-    v6 = part_GS.vertices.findAt((((v[5][1])),))
-    v7 = part_GS.vertices.findAt((((v[6][1])),))
-    v8 = part_GS.vertices.findAt((((v[7][1])),))
-
-    part_GS.Set(name='Vertices_GS-%d' %(i), vertices=(v1,v2,v3,v4,v5,v6,v7,v8,))
+#This function generates all meshes
+def Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, numGSs, indexInside, indexOutside):
     
+    #Generate the meshes for the GSs
     
+    #Index to iterate over the GSs that are partially outside the RVE
+    idx = 0
+    
+    #Number of GSs partially outside the RVE
+    gsOut = len(indexOutside)
+    #print('gsOut=%d'%(gsOut))
+    
+    #Iterate over all GSs
+    for gs_i in range(numGSs):
+
+        #Booloean to determine if a GS is partially outside the RVE
+        partOut = False
+        
+        #Check if current GS is inside the RVE or not
+        #print('idx=%d'%(idx))
+        if gsOut != 0 and gs_i == indexOutside[idx]:
+            
+            #Set to true the flag for GS partially outside the RVE
+            partOut = True
+            
+            #Increase the index and limit it by the total number of GSs
+            #partially outside the RVE
+            idx = (idx + 1) % gsOut
+            #print('    idx=%d'%(idx))
+        
+        #Get the part name
+        gs_part_str = string_part('GS', gs_i)
+        
+        #Get the instance name depending on where is the GS
+        if partOut:
+            
+            #Get the instance for a GS that is trimmed
+            gs_inst_str = gs_part_str + '-2'
+            
+        else:
+            #GS is inside the RVE
+            #Get the instance name using the default function
+            gs_inst_str = string_instance('GS', gs_i)
+            
+        #Create embedded elments constraint
+        Create_Embedded_Elements(modelName, matrixName, gs_i, gs_inst_str)
+        
+        #Mesh each graphene sheet if the flag for meshing is set to 1
+        #(meshing: GS mesh element size < Matrix mesh element size)
+        if meshModel == 1:
+            Mesh_GS(modelName, selectedElementCode, eeMeshSize, gs_part_str)
+            
+            #Check if:
+            #the GS is partially outside the RVE
+            #AND
+            #(if so) the GS was actually meshed, which is done by checking the number of meshed regions
+            if partOut and mdb.models[modelName].rootAssembly.getMeshStats((GS_model.rootAssembly.instances[gs_inst_str],)).numMeshedRegions == 0:
+                
+                #Mesh a GS that is partially outside the RVE
+                Remesh_partial_GS(modelName, gs_part_str, selectedElementCode, eeMeshSize)
+                
+        #Generate the mesh for the matrix
+        Generate_Matrix_Mesh(modelName, matrixName, selectedElementCode)
+        
+        #This seems to be required by Abaqus
+        mdb.models[modelName].rootAssembly.regenerate()
+
+
+#Mesh GS
+def Mesh_GS(model, code, meshSize, gs_part_str):
+    
+    GS_model = mdb.models[model]
+    
+    #ElemType(elemCode=code[0], elemLibrary=STANDARD, secondOrderAccuracy=OFF, distortionControl=DEFAULT), 
+    #kinematicSplit=AVERAGE_STRAIN, hourglassControl=STIFFNESS, distortionControl=ON, lengthRatio=0.1
+    GS_model.parts[gs_part_str].setElementType(
+        elemTypes=(
+            ElemType(elemCode=code[0], elemLibrary=elementLibrary[selectedLibrary], secondOrderAccuracy=OFF, distortionControl=DEFAULT), 
+            ElemType(elemCode=code[1], elemLibrary=elementLibrary[selectedLibrary]), 
+            ElemType(elemCode=code[2], elemLibrary=elementLibrary[selectedLibrary])), 
+        regions=(GS_model.parts[gs_part_str].cells, ))
+
+    GS_model.parts[gs_part_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=meshSize)
+    GS_model.parts[gs_part_str].generateMesh()
+       
+#Mesh a GS that is partially outside the RVE
+def Remesh_partial_GS(modelName, gs_part_str, selectedElementCode, eeMeshSize):
+                
+    #Set tetrahedron elements in mesh controls
+    mdb.models[modelName].parts[gs_part_str].setMeshControls(
+        elemShape=TET, regions=GS_model.parts[gs_part_str].cells.getSequenceFromMask(('[#1 ]',), ), technique=FREE)
+
+    #Set the element type
+    mdb.models[modelName].parts[gs_part_str].setElementType(
+        elemTypes=(
+            ElemType(elemCode=selectedElementCode[0], elemLibrary=elementLibrary[selectedLibrary], secondOrderAccuracy=OFF, distortionControl=DEFAULT),
+            ElemType(elemCode=selectedElementCode[1], elemLibrary=elementLibrary[selectedLibrary], secondOrderAccuracy=OFF, distortionControl=DEFAULT),
+            ElemType(elemCode=selectedElementCode[2], elemLibrary=elementLibrary[selectedLibrary], secondOrderAccuracy=OFF, distortionControl=DEFAULT)),
+        regions=(GS_model.parts[gs_part_str].cells.getSequenceFromMask(('[#1 ]',), ), ))
+
+    #Seed the part
+    mdb.models[modelName].parts[gs_part_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=eeMeshSize)
+
+    #Generate mesh
+    mdb.models[modelName].parts[gs_part_str].generateMesh()
+
+#Mesh the matrix
+def Generate_Matrix_Mesh(modelName, matrixName, selectedElementCode):
+                
+    #Generate the mesh for the matrix
+    mdb.models[modelName].parts[matrixName].setElementType(
+        elemTypes=(
+            ElemType(elemCode=selectedElementCode[0], elemLibrary=elementLibrary[selectedLibrary], secondOrderAccuracy=OFF, distortionControl=DEFAULT),
+            ElemType(elemCode=selectedElementCode[1], elemLibrary=elementLibrary[selectedLibrary]),
+            ElemType(elemCode=selectedElementCode[2], elemLibrary=elementLibrary[selectedLibrary])),
+        regions=(mdb.models[modelName].parts[matrixName].cells.getSequenceFromMask(('[#1 ]', ), ), ))
+    mdb.models[modelName].parts[matrixName].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=matrixMeshSize)
+    mdb.models[modelName].parts[matrixName].generateMesh()
+        
+        
+#Sets needed to create the PBC equations
+def Create_Set_for_PBC(model, matrixName, P0, Lxyz):
+
+    modelRoot = mdb.models[model].rootAssembly
+    
+    #Calculate half the lengths of the RVE along each direction
+    half_x = Lxyz[0]*0.5
+    half_y = Lxyz[1]*0.5
+    half_z = Lxyz[2]*0.5
+    
+    #Set containing the 6 faces of the RVE (temperature will be applied to this set)
+    modelRoot.Set(
+        faces=modelRoot.instances[matrixName + '-1'].faces.findAt(
+            ((Lxyz[0], half_y, half_z),),
+            ((P0[0], half_y, half_z),),
+            ((half_x, Lxyz[1], half_z),),
+            ((half_x, P0[1], half_y),),
+            ((half_x, half_y, Lxyz[2]),),
+            ((half_x, half_y, P0[2]),),),
+        name='External_Faces')
+
+    #If RPs are needed, then this sould be enabled
+    #Creating reference points further than the RVE length and taking its ID
+    RP_X_id = modelRoot.ReferencePoint(point=(Lxyz[0]*2.0, half_y, half_z)).id
+    RP_Y_id = modelRoot.ReferencePoint(point=(half_x, Lxyz[1]*2.0, half_z)).id
+    RP_Z_id = modelRoot.ReferencePoint(point=(half_x, half_y, Lxyz[2]*2.0)).id
+
+    #Creating a set for each reference point (used in the PBC equations)
+    modelRoot.Set(name='RP_X', referencePoints=(modelRoot.referencePoints[RP_X_id],))
+    modelRoot.Set(name='RP_Y', referencePoints=(modelRoot.referencePoints[RP_Y_id],))
+    modelRoot.Set(name='RP_Z', referencePoints=(modelRoot.referencePoints[RP_Z_id],))
+
+    #Set for each face of the RVE (used in the PBC equations)
+    modelRoot.Set(faces=
+        modelRoot.instances[matrixName + '-1'].faces.findAt(((Lxyz[0], half_y, half_z), )), name='X_positive')
+    modelRoot.Set(faces=
+        modelRoot.instances[matrixName + '-1'].faces.findAt(((P0[0], half_y, half_z), )), name='X_negative')
+    modelRoot.Set(faces=
+        modelRoot.instances[matrixName + '-1'].faces.findAt(((half_x, Lxyz[1], half_z), )), name='Y_positive')
+    modelRoot.Set(faces=
+        modelRoot.instances[matrixName + '-1'].faces.findAt(((half_x, P0[1], half_z), )), name='Y_negative')
+    modelRoot.Set(faces=
+        modelRoot.instances[matrixName + '-1'].faces.findAt(((half_x, half_y, Lxyz[2]), )), name='Z_positive')
+    modelRoot.Set(faces=
+        modelRoot.instances[matrixName + '-1'].faces.findAt(((half_x, half_y, P0[2]), )), name='Z_negative')
+
+#Equations of the periodic boundary conditions
+def PBC_Equations(model):
+
+    modelRoot = mdb.models[model]
+
+    #Equations with the same reference point (RP_#) terms will be added
+    #E.g.: 1*X_positive + 0.5*RP_X + (-1*X_negative) + 0.5*RP_X = X_Positive - X_Negative + RP_X = 0
+    #If RPs are needed, then this sould be enabled
+
+    modelRoot.Equation(name='EQ_X_Positive', terms=((1.0, 'X_positive', 1), (0.5, 'RP_X', 1)))
+    modelRoot.Equation(name='EQ_X_Negative', terms=((-1.0, 'X_negative', 1), (0.5, 'RP_X', 1)))
+
+    modelRoot.Equation(name='EQ_Y_Positive', terms=((1.0, 'Y_positive', 2), (0.5, 'RP_Y', 1)))
+    modelRoot.Equation(name='EQ_Y_Negative', terms=((-1.0, 'Y_negative', 2), (0.5, 'RP_Y', 1)))
+
+    modelRoot.Equation(name='EQ_Z_Positive', terms=((1.0, 'Z_positive', 3), (0.5, 'RP_Z', 1)))
+    modelRoot.Equation(name='EQ_Z_Negative', terms=((-1.0, 'Z_negative', 3), (0.5, 'RP_Z', 1)))
+
+#GS vertices for instances (after translations and rotation)
+def GS_Instances_NodeSet(model, gs_part_str, gs_inst_str):
+
+    GS_assembly = mdb.models[model].rootAssembly
+
+    #Get all vertices from a graphene sheet
+    GS_vertex = GS_assembly.instances[gs_inst_str].vertices
+        
+    GS_vertices = GS_vertex.getClosest(coordinates=(
+        (GS_assembly.getCoordinates(GS_vertex[0])),
+        (GS_assembly.getCoordinates(GS_vertex[1])),
+        (GS_assembly.getCoordinates(GS_vertex[2])),
+        (GS_assembly.getCoordinates(GS_vertex[3])),
+        (GS_assembly.getCoordinates(GS_vertex[4])),
+        (GS_assembly.getCoordinates(GS_vertex[5])),
+        (GS_assembly.getCoordinates(GS_vertex[6])),
+        (GS_assembly.getCoordinates(GS_vertex[7])),)) 
+
+    GS_assembly.Set(name=gs_part_str+'_N-0', vertices=(GS_vertex.findAt((((GS_vertices[4][1])),)),))
+    GS_assembly.Set(name=gs_part_str+'_N-1', vertices=(GS_vertex.findAt((((GS_vertices[1][1])),)),))
+    GS_assembly.Set(name=gs_part_str+'_N-2', vertices=(GS_vertex.findAt((((GS_vertices[0][1])),)),))
+    GS_assembly.Set(name=gs_part_str+'_N-3', vertices=(GS_vertex.findAt((((GS_vertices[6][1])),)),))
+    GS_assembly.Set(name=gs_part_str+'_N-4', vertices=(GS_vertex.findAt((((GS_vertices[5][1])),)),))
+    GS_assembly.Set(name=gs_part_str+'_N-5', vertices=(GS_vertex.findAt((((GS_vertices[2][1])),)),))
+    GS_assembly.Set(name=gs_part_str+'_N-6', vertices=(GS_vertex.findAt((((GS_vertices[3][1])),)),))
+    GS_assembly.Set(name=gs_part_str+'_N-7', vertices=(GS_vertex.findAt((((GS_vertices[7][1])),)),))
+
 #This function creates two sets for two of the vertices of the matrix (sample), where each set has only one node
-#These nodes are on the diagonal of the cuboid that defines the matrix (sample) 
-def create_sets_for_matrix(P0, Lxyz, str_matrix):
+#These nodes are on the diagonal of the cuboid that defines the matrix (sample)
+def Create_Sets_for_Matrix(model, P0, corner, matrixName):
     
     #Create the set of the lower left corner
-    #NOTE: The parenthesis, comma and the space in the nodes argument is beacuse a tuple is needed but
-    #the operation getClosest returns an object. The parenthesis, comma and space make it a tuple
-    mdb.models['Model-1'].rootAssembly.Set(
-        nodes=mdb.models['Model-1'].rootAssembly.instances[str_matrix+"-1"].nodes.getByBoundingSphere(center=P0, radius=0.001),
+    mdb.models[model].rootAssembly.Set(
+        vertices=mdb.models[model].rootAssembly.instances[matrixName+'-1'].vertices.getByBoundingSphere(center=P0, radius=0.001),
         name='Matrix0')
-    #This way does not allow to get displacements for some reason
-    #I guess the mesh is on instance and not in part
-    #mdb.models['Model-1'].parts[str_matrix].Set(
-    #    nodes=(mdb.models['Model-1'].parts[str_matrix].nodes.getByBoundingSphere(center=P0, radius=0.001), ),
-    #    name='Matrix0')
-    
-    #print('P0=',P0,' str_matrix=',str_matrix)
-    #nd = mdb.models['Model-1'].rootAssembly.instances[str_matrix+"-1"].nodes.getByBoundingSphere(center=P0, radius=0.001)
-    #print('nd0=',nd[0].coordinates)
-    
-    #Create opposite corner
-    corner = (P0[0]+Lxyz[0], P0[1]+Lxyz[1], P0[2]+Lxyz[2])
-    
+   
     #Create the set of the opposite corner
-    mdb.models['Model-1'].rootAssembly.Set(
-        nodes=mdb.models['Model-1'].rootAssembly.instances[str_matrix+"-1"].nodes.getByBoundingSphere(center=corner, radius=0.001),
+    mdb.models[model].rootAssembly.Set(
+        vertices=mdb.models[model].rootAssembly.instances[matrixName+'-1'].vertices.getByBoundingSphere(center=corner, radius=0.001),
         name='Matrix1')
-    #nd = mdb.models['Model-1'].rootAssembly.instances[str_matrix+"-1"].nodes.getByBoundingSphere(center=corner, radius=0.001)
-    #print('nd1=',nd[0].coordinates)
-    
-    #Create set
- # mdb.models['Model-1'].rootAssembly.Set(
- #     nodes=mdb.models['Model-1'].rootAssembly.instances[str_matrix+"-1"].nodes.getByBoundingSphere(center=(P0[0], P0[1]+Lxyz[1], P0[2]+Lxyz[2]), radius=0.001),
- #     name='Matrix2')
-        
-    #Perform union of two sets
-    #mdb.models['Model-1'].rootAssembly.SetByBoolean(
-    #    name='Matrix2', 
-    #    operation=UNION, 
-    #    sets=(mdb.models['Model-1'].rootAssembly.sets['Matrix0'], mdb.models['Model-1'].rootAssembly.sets['Matrix1'])
-    #    )
-    
-    
-#Matrix name
-matrixName = 'MATRIX'
-#Cutting box name
-biggerBoxName = 'BIGGER_BOX'
-#Name of the analysis model (unchangeable)
-modelName = 'Model-1'
 
-#Different element types
-elemTemp_Disp = [C3D8T, C3D6T, C3D4T]
-elemTemp_Elec_Disp = [Q3D8, Q3D6, Q3D4]
-elemTemp_Elec = [DC3D8E, DC3D6E, DC3D4E]
-elem_Disp = [C3D8R, C3D6, C3D4]
-selectedElementCode = []
 
-#Selecting a desired element type
-if elemTypeCode == 1:
-    selectedElementCode = elemTemp_Disp
-elif elemTypeCode == 2:
-    selectedElementCode = elemTemp_Elec_Disp
-elif elemTypeCode == 3:
-    selectedElementCode = elemTemp_Elec
-elif elemTypeCode == 4:
-    selectedElementCode = elem_Disp
-else:
-    print('WARNING. Invalid element type. Elment type code was set to displacement elements (elemTemp_Disp)')
-    selectedElementCode = elem_Disp
+##############################################################################################
+##############################################################################################
+##############################################################################################
+#####################################---MAIN PROGRAM---#######################################
+
+
+######################################---OPENING CSV---#######################################
+
+# Complete path of the .csv: csv_filePath = os.path.join(os.path.dirname(os.path.abspath('__file__')), csv_gnpFile + '.csv')
+# Old reader: with open(csv_filePath) as f: data_gnp = list(csv.reader(f, quoting=csv.QUOTE_NONNUMERIC))
+start_time = time.time()
+
+#with open(os.path.join(os.path.dirname('__file__'), csv_gnpFile + '.csv')) as file_gnp:
+with open(csv_gnpFile) as file_gnp:
+    data_gnp = list(csv.reader(file_gnp, quoting=csv.QUOTE_NONNUMERIC))
+
+#with open(os.path.join(os.path.dirname('__file__'), csv_geomFile + '.csv')) as file_geom:
+with open(csv_geomFile) as file_geom:
+    #data_geom = list(csv.reader(file_geom, quoting=csv.QUOTE_NONNUMERIC))
+    (P0, Lxyz) = list(csv.reader(file_geom, quoting=csv.QUOTE_NONNUMERIC))
+
+#Get the corner of the RVE opposite to P0
+corner = (P0[0]+Lxyz[0], P0[1]+Lxyz[1], P0[2]+Lxyz[2])
+
+#Calculate the number of GNPs
+numRows_gnp = len(data_gnp)
+
+print('There are ' + str(numRows_gnp) + ' graphene sheets inside the RVE.')
+
+#Name of the job to be used based on its parameters
+#GS-'Number of GS in the RVE'
+#EPS-'Number of elements per side'
+#MR-'Mesh ratio' (EmbeddedMesh/HostMesh)
+jobName = 'GS-'+str(numRows_gnp)+'_EPS-'+str(elementsPerSide)+'_MR-'+str(int(100*meshRatio))
+
+#Number of GS laying inside/outside the RVE
+indexOutside = []
+indexInside = []
+
+#Select an element type based on the choice of geometric order
+selectedElementCode = Select_Elemet_Type(selectedGeomOrder)
+
+#Mesh size for the matrix (um)
+matrixMeshSize = Lxyz[1]/elementsPerSide
 
 #Embedded element mesh size
 eeMeshSize = matrixMeshSize*meshRatio
 
-#########################################---OPENING CSV FILES---#########################################
+####################################---MODEL CREATION---######################################
 
-with open(gs_file) as f:
-    #x = csv.reader(f, quoting=csv.QUOTE_NONNUMERIC)
-    gs_data = list(csv.reader(f, quoting=csv.QUOTE_NONNUMERIC))
+#Creating the matrix
+Create_Matrix(modelName, sheetSize, matrixName, P0, Lxyz)
 
-N_GSs = len(gs_data)
+#Creating a bounding box
+Create_BiggerBox(modelName, sheetSize, biggerBoxName, P0, Lxyz, data_gnp)
 
-#Read the sample geometry
-with open(sample_file) as f:
-    (P0, Lxyz) = list(csv.reader(f, quoting=csv.QUOTE_NONNUMERIC))
+#Creating each material
+Create_Material(modelName, matrixMaterial, matrixDensity, matrixModulus, matrixPoissonR, matrixExpCoeff, matrixThermConductivity, matrixSpecHeat, matrixElecConductivity)
+Create_Material(modelName, fillerMaterial, fillerDensity, fillerModulus, fillerPoissonR, fillerExpCoeff, fillerThermConductivity, fillerSpecHeat, fillerElecConductivity)
 
-print('The number of graphene sheets is:',N_GSs)
+#Creating a section for each material
+Create_Section(modelName, matrixMaterial)
+Create_Section(modelName, fillerMaterial)
 
-#######################################---MODEL CREATION---#########################################
+#-----------------------------------START: CREATE ASSEMBLY-----------------------------------#
 
-
-###----------------------------------Start: Create Parts----------------------------------###
-#Generate the matrix part
-matrix_part(P0, Lxyz, str_matrix, sheetSize)
-
-#Box used for cutting GSs
-#Create_BiggerBox(modelName, sheetSize, biggerBoxName, matrixLength)
-
-#Create grpahene sheet parts
-gs_parts_all(N_GSs, gs_data, modelName, sheetSize)
-    
-###----------------------------------End: Create Parts----------------------------------###
-
-
-###----------------------------------Start: Materials and sections----------------------------------###
-#Create matrix material
-#Create_Material(modelName, matrixMaterial, matrixDensity, matrixModulus, matrixPoissonR, matrixExpCoeff, matrixThermConductivity, matrixSpecHeat, matrixElecConductivity)
-#Create GS material
-#Create_Material(modelName, fillerMaterial, fillerDensity, fillerModulus, fillerPoissonR, fillerExpCoeff, fillerThermConductivity, fillerSpecHeat, fillerElecConductivity)
-
-#Creating a section for matrix
-#Create_Section(modelName, matrixMaterial)
-#Create a section for GS
-#Create_Section(modelName, fillerMaterial)
-
-#Create material and section for matrix (only elastic properties)
-materials_and_sections_matrix(modelName, str_matrix, matrixMaterial, matrixSection, matrixDensity, matrixModulus, matrixPoissonR)
-
-#Create material and section for GS (only elastic properties)
-materials_and_sections_gs(N_GSs, gsMaterial, gsSection, gsDensity, gsModulus, gsPoissonR)
-
-###----------------------------------End: Materials and sections----------------------------------###
-
-
-###----------------------------------Start: Create assembly----------------------------------###
+#This line seems to be required by Abaqus to set a Cartesian system
 mdb.models[modelName].rootAssembly.DatumCsysByDefault(CARTESIAN)
 
-# mdb.models[modelName].rootAssembly.Instance(
-#     dependent=ON, 
-#     name=biggerBoxName + '-1', 
-#     part=mdb.models[modelName].parts[biggerBoxName])
+#Create instance of the matrix
+mdb.models[modelName].rootAssembly.Instance(dependent=ON, name=matrixName + '-1', part=mdb.models[modelName].parts[matrixName])
+#Create instance of the bigger box
+mdb.models[modelName].rootAssembly.Instance(dependent=ON, name=biggerBoxName + '-1', part=mdb.models[modelName].parts[biggerBoxName])
 
-#Create the cutting box using one particular GS as reference
-#Create_CuttingBox(modelName, str_matrix, biggerBoxName, gs_data[1])
+#Create the box that will be used to cut all GS that are partially outside the RVE
+Create_CuttingBox(modelName, matrixName, biggerBoxName)
 
-#Generate assembly
-generate_assembly(N_GSs, modelName, str_matrix, gs_data)
-###-----------------------------------End: Create assembly-----------------------------------###
+#Assign section to matrix part
+Assign_Section(modelName, matrixMaterial, matrixName)
+#mdb.models[modelName].parts[matrixName].SectionAssignment(
+#    offset=0.0, offsetField='', offsetType=MIDDLE_SURFACE,
+#    region=Region(cells=mdb.models[modelName].parts[matrixName].cells),
+#    sectionName=matrixMaterial, thicknessAssignment=FROM_SECTION)
 
-# print(indexOutside)    
-# print(indexInside)
+#Create parts and instances for GSs
+Create_All_GSs(modelName, fillerMaterial, sheetSize, numRows_gnp, P0, corner)
 
-###-------------------------------------Start: BCs-------------------------------------###
+#------------------------------------END: CREATE ASSEMBLY------------------------------------#
 
-#Defining boundary conditions
-#mdb.models[modelName].CoupledThermalElectricalStructuralStep(deltmx=0.1, initialInc=0.01, name='Step_name', previous='Initial')
+#-----------------------------START: PERIODIC BOUNDARY CONDITIONS----------------------------#
 
-#Boundary conditions for testing
-# Displacement_BoundaryConditions(modelName, matrixName)
-# Temperature_BoundaryConditions(modelName, matrixName, tempApplied, numRows)
+#Defining periodic boundary conditions
 
-# for numPart in indexInside:
-#     #Create embedded elements (GS) one by one into the host region (matrix)
-#     Create_Embedded_Elements(modelName, matrixName, numPart)
-#     #Mesh each graphene sheet (meshing: sizeGS < sizeMatrix)
-#     Mesh_GS(modelName, selectedElementCode, eeMeshSize, numPart)
-#
-# for numPart in indexOutside:
-#     #Create embedded elements (GS) one by one into the host region (matrix)
-#     Create_Embedded_Elements_CuttedGS(modelName, matrixName, numPart)
-#     #Mesh each graphene sheet (meshing: sizeGS < sizeMatrix)
-#     Mesh_GS(modelName, selectedElementCode, eeMeshSize, numPart)
+#Create sets for each face of the RVE
+Create_Set_for_PBC(modelName, matrixName, P0, Lxyz)
 
-#Create all embedded elements constraints when using option all_in
-create_embedded_elments_gs(N_GSs, modelName, str_matrix, 'GS')
+#Create the sets for
+Create_Sets_for_Matrix(modelName, P0, corner, matrixName)
 
-#Create Step and add boundary conditions
-create_step_and_pbcs(modelName, P0, Lxyz, str_matrix, disp)
+#Add the equations that define the PBC
+PBC_Equations(modelName)
 
-###-------------------------------------End: BCs-------------------------------------###
+#Add temperature boundary conditions
+Add_Boundary_Conditions(modelName, tempApplied)
 
+print('Periodic boundary conditions have been applied.')
+#, 'COORD'
 
-###-------------------------------------Start: Meshing-------------------------------------###
+#Set the output request
+mdb.models[modelName].fieldOutputRequests['F-Output-1'].setValues(variables=('S', 'E', 'U'))
 
-#Mesh matrix
-generate_matrix_mesh(modelName, str_matrix, matrixMeshSize)
+#------------------------------END: PERIODIC BOUNDARY CONDITIONS-----------------------------#
 
-#Mesh all GS when using option all_in
-generate_gs_meshes(N_GSs, modelName, selectedElementCode, eeMeshSize)
+#---------------------------------------START: MESHING---------------------------------------#
 
-#Create sets for the matrix (sample in the C++ code)
-#NOTE: Sets are generated on root assembly
-create_sets_for_matrix(P0, Lxyz, str_matrix)
+Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, numRows_gnp, indexInside, indexOutside)
 
-#Mesh the matrix (its size should be bigger than the meshing size of the GS). Meshes are being created with code
-# mdb.models[modelName].parts[matrixName].setElementType(
-#     elemTypes=(
-#         ElemType(elemCode=selectedElementCode[0], elemLibrary=STANDARD, secondOrderAccuracy=OFF, distortionControl=DEFAULT), 
-#         ElemType(elemCode=selectedElementCode[1], elemLibrary=STANDARD), 
-#         ElemType(elemCode=selectedElementCode[2], elemLibrary=STANDARD)), 
-#     regions=(mdb.models[modelName].parts[matrixName].cells.getSequenceFromMask(('[#1 ]', ), ), ))
-# mdb.models[modelName].parts[matrixName].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=matrixMeshSize)
-# mdb.models[modelName].parts[matrixName].generateMesh()
-# mdb.models[modelName].rootAssembly.regenerate()
-###-------------------------------------End: Meshing--------------------------------------###
+print('The model has been completed in %s seconds.' % round(time.time() - start_time, 1))
 
+#Check if files for re-meshing the model are needed
+if reMeshModel == 1:
+    #Create files that contain the index of each GS depending on its state (inside or outside the RVE)
+    textfile_IO = open('GS-'+str(numRows_gnp)+'_indexOutside.txt', 'w')
+    for element in indexOutside:
+        textfile_IO.write(str(element)+',')
+    textfile_IO.close()
 
-###-------------------------------------Start: Job-------------------------------------###
-#Create and submit job using Abaqus default values
-mdb.Job(atTime=None, contactPrint=OFF, description='', echoPrint=OFF, 
-    explicitPrecision=SINGLE, getMemoryFromAnalysis=True, historyPrint=OFF, 
-    memory=90, memoryUnits=PERCENTAGE, model='Model-1', modelPrint=OFF, 
-    multiprocessingMode=DEFAULT, name='Job-1', nodalOutputPrecision=SINGLE, 
-    numCpus=1, numGPUs=0, queue=None, resultsFormat=ODB, scratch='', type=
-    ANALYSIS, userSubroutine='', waitHours=0, waitMinutes=0)
-mdb.jobs['Job-1'].submit(consistencyChecking=OFF)
-###-------------------------------------End: Job--------------------------------------###
+    textfile_II = open('GS-'+str(numRows_gnp)+'_indexInside.txt', 'w')
+    for element in indexInside:
+        textfile_II.write(str(element)+',')
+    textfile_II.close()
+#---------------------------------------END: MESHING----------------------------------------#
 
+###################################---JOB SUBMISSION---######################################
+
+if createJob == 1:
+    mdb.Job(atTime=None, contactPrint=OFF, description='', echoPrint=OFF, 
+        explicitPrecision=SINGLE, getMemoryFromAnalysis=True, historyPrint=OFF, 
+        memory=90, memoryUnits=PERCENTAGE, model=modelName, modelPrint=OFF, 
+        multiprocessingMode=DEFAULT, name=jobName, nodalOutputPrecision=SINGLE, 
+        numCpus=int(multiprocessing.cpu_count()*0.8), numDomains=int(multiprocessing.cpu_count()*0.8), numGPUs=1, queue=None, resultsFormat=ODB, scratch=
+        '', type=ANALYSIS, userSubroutine='', waitHours=0, waitMinutes=0)
+
+    if submitJob == 1:
+        mdb.jobs[jobName].submit(consistencyChecking=OFF)
