@@ -22,12 +22,13 @@ import time
 ########################################---VARIABLES---#######################################
 
 ###################### Files
-#Name of the .csv file with the GS parameters (needs to be in the same work directory as Abaqus)
-#csv_gnpFile = 'gnp_data_702'
+#Name of the .csv file with the GS parameters
 csv_gnpFile = 'gnp_data.csv'
-#Name of the .csv file with the RVE geometry parameters (needs to be in the same work directory as Abaqus)
-#csv_geomFile = 'sample_geom_5'
+#Name of the .csv file with the RVE geometry parameters
 csv_geomFile = 'sample_geom.csv'
+
+coord_file = 'cnt_coordinates.csv'
+struct_file = 'cnt_struct.csv'
 
 ###################### Mesh flags and variables
 #Number of elements per side of the RVE
@@ -99,6 +100,8 @@ dispZ = 0.0
 matrixMaterial = 'Polypropylene'
 #Matrix name
 matrixName = 'MATRIX'
+#String for the host set (i.e., the matrix)
+strHost = 'host_Set'
 #Define the mass density (kg/m3)
 matrixDensity = 900
 #Define the elastic modulus (GPa)
@@ -115,22 +118,45 @@ matrixThermConductivity = 0.19
 matrixSpecHeat = 75
 
 ###################### Nanofiller properties
+
+### GSs
 #Define the name of the filler
-fillerMaterial = 'Graphene'
+gsMaterial = 'Graphene'
 #Define the mass density (kg/m3)
-fillerDensity = 2200
+gsDensity = 2200
 #Define the elastic modulus (GPa) - 1000
-fillerModulus = 1029
+gsYoungsModulus = 1029
 #Define the Poisson ratio - 0.165
-fillerPoissonR = 0.149
+gsPoissonR = 0.149
 #Define de coefficient of thermal expansion (e-5 1/C)
-fillerExpCoeff = 0.5
+gsExpCoeff = 0.5
 #Define the electrical conductivity (S/m)
-fillerElecConductivity = 10e7
+gsElecConductivity = 10e7
 #Define the thermal conductivity (W/m*K) - Because of Abaqus needs, but doesn't affect the thermo-mechanical simulation (could be = 1)
-fillerThermConductivity = 3000
+gsThermConductivity = 3000
 #Define the specific heat (J/mol*K) - Because of Abaqus needs, but doesn't affect the thermo-mechanical simulation (could be = 1)
-fillerSpecHeat = 7
+gsSpecHeat = 7
+
+### CNTs
+#Define the name and section of the filler
+cntMaterial = 'CNT_mat'
+cntSection = 'CNT_sec'
+#Define the mass density (kg/m3)
+cntDensity = 2200
+#Define the elastic modulus (GPa)
+cntYoungsModulus = 1e9
+#Define the Poisson ratio
+cntPoissonR = 0.165
+#Define de coefficient of thermal expansion (e-5 1/C)
+cntExpCoeff = 0.5
+#Define the thermal conductivity (W/m*K)
+cntThermConductivity = 3000
+#Define the specific heat (J/mol*K)
+cntSpecHeat = 7
+#Define the electrical conductivity (S/m)
+cntElecConductivity = 1e7
+#Maximum CNT radius
+cnt_rad_max = 0.005
 
 ###################### Step flags and variables
 #Step name
@@ -174,6 +200,12 @@ sheetSize = 1.0
 #Conversion factor feom radians to degrees
 rad2deg = 180/math.pi
 
+#Cosine of 45 degrees (PI/4)
+cos45 = 0.7071067812
+
+#"Zero" for comparing floating point numbers
+Zero = 1e-7
+
 ######################################---STRING FUNCTIONS---########################################
 
 #This function generates a string for the filler part
@@ -190,9 +222,94 @@ def string_instance(filler, i):
 def gs_string_node_set(gs_i):
     #Return the string in the format GS-nodes-gs_i
     return 'GS-%d-NODES' %(gs_i)
-    
+
+#This function generates a string for the node set of CNT i
+def cnt_string_node_set(cnt_i):
+    #Return the string in the format CNT-nodes-cnt_i
+    return 'CNT-%d-NODES' %(cnt_i)
+
 def ee_string(filler, i):
     return 'EE-%s-%d'%(filler, i)
+
+######################################---MATH FUNCTIONS---########################################
+
+#This function generates a rotation matrix
+def rotation_matrix(P1, P2):
+
+    #Get the components of the vector in the direction of P1P2
+    ux = P2[0] - P1[0]
+    uy = P2[1] - P1[1]
+    uz = P2[2] - P1[2]
+
+    #Squared quantities
+    ux2 = ux*ux
+    uy2 = uy*uy
+
+    #Calculate the length of the vector u
+    u_length = sqrt(ux2 + uy2 + uz*uz);
+
+    #This quantity is used three times:
+    quantity = sqrt(ux2 + uy2);
+
+    #Calculate the trigonometric functions of the angles theta and phi
+    cos_phi = ux/quantity;
+    sin_phi = uy/quantity;
+    cos_theta = uz/u_length;
+    sin_theta = quantity/u_length;
+
+    #Generate the components of the rotation matrix
+    R11 = cos_phi*cos_theta
+    R12 = -sin_phi
+    R13 = cos_phi*sin_theta
+
+    R21 = sin_phi*cos_theta
+    R22 = cos_phi
+    R23 = sin_phi*sin_theta
+
+    R31 = -sin_theta
+    R33 = cos_theta
+
+    #Create a 'matrix' using the components found above
+    R = ((R11, R12, R13),(R21, R22, R23),(R31, 0.0, R33))
+
+    #Return the rotation matrix
+    return R
+
+#This function retunrs a unit vector going from P1 towards P2
+def get_unit_vector(P1, P2):
+
+    #Get the vector going from P1 towards P2
+    v = (P2[0]-P1[0], P2[1]-P1[1], P2[2]-P1[2])
+
+    #Calculate the length of vector v
+    length = sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2])
+
+    #Return v as a unit vector
+    return (v[0]/length, v[1]/length, v[2]/length)
+
+#This function makes the input vector a unit vector
+def make_unit(V):
+
+    #Calculate length of V
+    length = sqrt(V[0]*V[0] + V[1]*V[1] + V[2]*V[2])
+
+    #Return V as a unit vector
+    return (V[0]/length, V[1]/length, V[2]/length)
+
+#Cross product of two vectors
+def cross(v1, v2):
+
+    #Calculate the compoenents of the cross product
+    x = v1[1]*v2[2] - v1[2]*v2[1]
+    y = -v1[0]*v2[2] + v1[2]*v2[0]
+    z = v1[0]*v2[1] - v1[1]*v2[0]
+
+    #Return the cross product
+    return (x,y,z)
+
+#Dot product of two vectors
+def dot(v1, v2):
+    return (v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2])
 
 ###################################---ABAQUS FUNCTIONS---#####################################
 
@@ -291,6 +408,128 @@ def Create_CuttingBox(model, partMatrix, partBox):
 
     mdb.models[model].rootAssembly.features[partMatrix + '-1'].resume()
 
+#This function generates all CNT parts
+def CNT_Parts_All(model, N_CNTs, cnt_struct, cnt_coords):
+    
+    #Number of accumulated points
+    acc_pts = 0
+
+    #Iterate over the number of CNTs
+    for cnt_i in range(1, N_CNTs+1):
+
+        #Number of points in CNTi and its radius
+        N_p = int(cnt_struct[cnt_i][0])
+        rad = cnt_struct[cnt_i][1]
+
+        #Create all CNTs, one part per CNT
+        #The first point is given by the accumulated number of points
+        #The last point is the accumulated number of points plus the number of points of CNTi minus 1
+        CNT_Part(model, cnt_i, rad, acc_pts, acc_pts+N_p-1, cnt_coords)
+
+        #Increase the number of accumulated points
+        acc_pts += N_p
+
+#This function creates a CNT in Part module
+def CNT_Part(model, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords):
+	
+    #Get the string for the CNT
+    str_part = string_part('CNT', cnt_i)
+
+    #Create a point to be able to generate the edges that will make the CNT
+    mdb.models[model].Part(dimensionality=THREE_D, name=str_part, type=DEFORMABLE_BODY)
+    mdb.models[model].parts[str_part].ReferencePoint(point=(0.0, 0.0, 0.0))
+
+    #print("cnt_start=",cnt_start," cnt_end=",cnt_end)
+
+    #Create edges, iterate over all points of the CNT
+    Generate_Edges(model, cnt_start, cnt_end, cnt_coords, str_part)
+
+    #Sweep an octagon along the edges
+    Generate_Sweep(model, cnt_coords[cnt_end-1], cnt_coords[cnt_end], cnt_rad, cnt_start, cnt_end, str_part)
+
+    #Delete the initial point as it is not used anymore
+    del mdb.models[model].parts[str_part].features['RP']
+
+#This function generates all edges of a CNT
+def Generate_Edges(model, cnt_start, cnt_end, cnt_coords, str_part):
+    
+    #Create edges, iterate over all points of the CNT
+    for i in range(cnt_start, cnt_end):
+    #for i in range(cnt_start, cnt_start+11):
+
+        #First point of the CNT segment
+        P1 = cnt_coords[i]
+        #Second point of the CNT segment
+        P2 = cnt_coords[i+1]
+
+        #Generate the segment
+        mdb.models[model].parts[str_part].WirePolyLine(mergeType=IMPRINT, meshable= ON, points=((P1, P2), ))
+
+        #Generate the name of the wire
+        #str_wire = 'Wire-%d-Set-1' %(i-cnt_start+1)
+
+        #Name the wire
+        #mdb.models[model].parts[str_part].Set(edges=
+        #	mdb.models[model].parts[str_part].edges.getSequenceFromMask(('[#1 ]', ), ), name=str_wire)
+
+#This function generates the sweeped part
+def Generate_Sweep(model, P1, P2, cnt_rad, cnt_start, cnt_end, str_part):
+    #The sketching plane is perpendicular to the last segment
+    #The last segment has the points P1 and P2, so the z-axis of the sketch plane is 
+    #aligned to this last segment and goes in the direction from P1 to P2
+    #A transformation matrix is generated to align the z-axis to the last segment
+    R = rotation_matrix(P1, P2)
+
+    #Profile name is used several times, so create a variable to modify it easyly
+    #in case it is needed
+    profile_str = '__profile__'
+
+    #Create the sketching plane using the rotation matrix and the last point in the CNT
+    mdb.models[model].ConstrainedSketch(gridSpacing=0.001, name=profile_str, sheetSize=0.076, transform=(
+        R[0][0], R[0][1], R[0][2],
+        R[1][0], R[1][1], R[1][2], 
+        R[2][0], 0.0, R[2][2], 
+        P2[0], P2[1], P2[2]))
+    mdb.models[model].sketches[profile_str].sketchOptions.setValues( decimalPlaces=5)
+    mdb.models[model].sketches[profile_str].ConstructionLine(point1=(-0.038, 0.0), point2=(0.038, 0.0))
+    mdb.models[model].sketches[profile_str].ConstructionLine(point1=(0.0,-0.038), point2=(0.0, 0.038))
+    mdb.models[model].parts[str_part].projectReferencesOntoSketch(
+        filter=COPLANAR_EDGES, sketch=mdb.models[model].sketches[profile_str])
+
+    #Calculate the radius multiplied by cos(PI/4)
+    new_rad = cnt_rad*cos45
+
+    #Construct a regular octagon
+    #Vertex 1-2
+    mdb.models[model].sketches[profile_str].Line(point1=(0.0, cnt_rad), point2=(new_rad, new_rad))
+    #Vertex 2-3
+    mdb.models[model].sketches[profile_str].Line(point1=(new_rad, new_rad), point2=(cnt_rad, 0.0))
+    #Vertex 3-4
+    mdb.models[model].sketches[profile_str].Line(point1=(cnt_rad, 0.0), point2=(new_rad, -new_rad))
+    #Vertex 4-5
+    mdb.models[model].sketches[profile_str].Line(point1=(new_rad,-new_rad), point2=(0.0, -cnt_rad))
+    #Vertex 5-6
+    mdb.models[model].sketches[profile_str].Line(point1=(0.0, -cnt_rad), point2=(-new_rad, -new_rad))
+    #Vertex 6-7
+    mdb.models[model].sketches[profile_str].Line(point1=(-new_rad, -new_rad), point2=(-cnt_rad, 0.0))
+    #Vertex 7-8
+    mdb.models[model].sketches[profile_str].Line(point1=(-cnt_rad, 0.0), point2=(-new_rad, new_rad))
+    #Vertex 8-1
+    mdb.models[model].sketches[profile_str].Line(point1=(-new_rad, new_rad), point2=(0.0, cnt_rad))
+
+    #Select the last edge, which has number equal to (number edges-1)
+    #The number of edges is equal to (number of points-1)
+    #The number of points is (cnt_end-cnt_start+1)
+    #Then, the las edge has number ((cnt_end-cnt_start+1)-1-1)=(cnt_end-cnt_start-1)
+    mdb.models[model].parts[str_part].SolidSweep(
+        path=mdb.models[model].parts[str_part].edges, 
+        profile=mdb.models[model].sketches[profile_str], 
+        sketchOrientation=RIGHT, 
+        sketchUpEdge=mdb.models[model].parts[str_part].edges[cnt_end-cnt_start-1])
+
+    #Delete sketch
+    del mdb.models[model].sketches[profile_str]
+
 #Create all parts and instances for GSs
 def Create_All_GSs(modelName, fillerMaterial, sheetSize, n_gs, P0, corner):
 
@@ -317,6 +556,9 @@ def Create_All_GSs(modelName, fillerMaterial, sheetSize, n_gs, P0, corner):
         
         #Assign material to GS
         Assign_Section(modelName, fillerMaterial, gs_part_str)
+
+    #Hide the hollow box that was used to cut the GSs
+    mdb.models[modelName].rootAssembly.features['CUTTER-1'].suppress()
     
 #Create GS
 def Create_GS(model, sheetsz, gnp_i, gs_part_str):
@@ -439,12 +681,91 @@ def Translate_Rotate_and_Cut_GS(model, i, P0, corner, gs_part_str, gs_inst_str):
             break
 
     if not checkOutside:
-        indexInside.append(i)    
+        indexInside.append(i)
 
-    #This seems to be needed for the last GNP
-    if i == numRows_gnp - 1:
-        GS_assembly.features['CUTTER-1'].suppress()
+#This function creates the assembly by creating the instances of each part
+def Generate_CNT_Assembly(model, N_CNTs):
+
+    #Create instances for each CNT
+    for i in range(1, N_CNTs+1):
+
+        #Generate name for CNT part
+        str_cnt = string_part('CNT', i)
+
+        #Generate name for CNT instance
+        str_cnt_inst = string_instance('CNT', i)
+
+        #Generate CNT instance
+        mdb.models[model].rootAssembly.Instance(
+            dependent=ON, name=str_cnt_inst,
+            part=mdb.models[model].parts[str_cnt])	
  
+#This function creates the sets that will be used when creating the embedded element constraints
+def Sets_For_Embedded_Elements_CNTs(model, P0, Lxyz, N_CNTs, cnt_struct, cnt_coords, str_matrix, str_host):
+
+    #Point at the center of the matrix
+    Pc = (P0[0] + 0.5*Lxyz[0], P0[1] + 0.5*Lxyz[1], P0[2] + 0.5*Lxyz[2]);
+
+    #Set for the matrix
+    mdb.models[model].rootAssembly.Set(
+	    cells=mdb.models[model].rootAssembly.instances[str_matrix + '-1'].cells.findAt((Pc, ) ),
+	    name=str_host)
+
+    #Variable to keep the count of CNT points
+    acc_pts = 0
+
+    #Sets for the CNTs
+    for cnt_i in range(1, N_CNTs+1):
+
+        #Get the string for the CNT part
+        cnt_str = string_part('CNT', cnt_i)
+
+        #Generate name for CNT instance
+        str_cnt_inst = string_instance('CNT', cnt_i)
+
+        #Number of points in CNTi and its radius
+        N_p = int(cnt_struct[cnt_i][0])
+
+        #Generate name of set for cnt_i
+        set_str = ee_string('CNT', cnt_i)
+
+        #Create the set for cnt_i
+        mdb.models[model].rootAssembly.Set(
+            cells=mdb.models[model].rootAssembly.instances[str_cnt_inst].cells.findAt( (cnt_coords[acc_pts+1],) ),
+            name=set_str)
+
+        #Increase the number of accumulated points
+        acc_pts += N_p
+
+#This functions creates the constraints for the embedded elements
+def Embedded_Elements_Constraints_CNTs(model, N_CNTs, str_matrix, str_host):
+
+    #Iterate over the CNTs
+    for cnt_i in range(1, N_CNTs+1):
+
+        #Get the string for the CNT part
+        cnt_str = cnt_string_part(cnt_i)
+
+        #Get the string for the CNT part
+        cnt_str = cnt_string_part(cnt_i)
+
+        #Get the string for the CNT set
+        set_str = ee_string('CNT', cnt_i)
+
+        #For cnt_i create an embedded element constraint
+        #mdb.models['Model-1'].EmbeddedRegion(
+        #	absoluteTolerance=0.0, fractionalTolerance=0.05, toleranceMethod=BOTH, weightFactorTolerance=1e-06,
+        #	embeddedRegion=
+        #		Region(cells=mdb.models['Model-1'].rootAssembly.instances[cnt_str + '-1'].cells.getSequenceFromMask(mask=('[#1 ]', ), )), 
+        #	hostRegion=
+        #		Region(cells=mdb.models['Model-1'].rootAssembly.instances[str_matrix + '-1'].cells.getSequenceFromMask(mask=('[#1 ]', ), )),
+        #	name='EE-Constraint-%d' %(cnt_i))
+        mdb.models[model].EmbeddedRegion(
+        absoluteTolerance=0.0, fractionalTolerance=0.05, toleranceMethod=BOTH, weightFactorTolerance=1e-06,
+        embeddedRegion=mdb.models[model].rootAssembly.sets[set_str],
+        hostRegion=mdb.models[model].rootAssembly.sets[str_host],
+        name='EE-CNT-%d' %(cnt_i))
+
 #This function returns true if a point is outside the RVE
 def Is_Point_Outside_RVE(P0, corner, point):
     
@@ -595,37 +916,36 @@ def Add_Boundary_Conditions(model, temp):
         mdb.models[model].boundaryConditions['TEMP'].setValues(amplitude=ampName)
 
 #Embedded elements
-def Create_Embedded_Elements(model, matrixName, gs_i, gs_inst_str):
-    
+def Create_Embedded_Elements_GSs(model, matrixName, gs_i, gs_inst_str):
+
     #Add embedded region to GS i
     mdb.models[model].EmbeddedRegion(
         absoluteTolerance=0.0, 
         embeddedRegion=Region(cells=mdb.models[model].rootAssembly.instances[gs_inst_str].cells),
         fractionalTolerance=0.05, 
         hostRegion=Region(cells=mdb.models[model].rootAssembly.instances[matrixName + '-1'].cells),
-        name='Element-%d' %(gs_i),
-        toleranceMethod=BOTH, 
-        weightFactorTolerance=1e-06)
-
-#Embedded elements of the cutted GS
-def Create_Embedded_Elements_CuttedGS(model, matrixName, i):
-    
-    #Add embedded region to GS i, which lies partially outside the RVE
-    mdb.models[model].EmbeddedRegion(
-        absoluteTolerance=0.0, 
-        embeddedRegion=Region(
-            cells=mdb.models[model].rootAssembly.instances['GS-%d-2' %(i)].cells.getSequenceFromMask(mask=('[#1 ]', ), )), 
-        fractionalTolerance=0.05, 
-        hostRegion=Region(
-            cells=mdb.models[model].rootAssembly.instances[matrixName + '-1'].cells.getSequenceFromMask(mask=('[#1 ]', ), )), 
-        name='Element-%d' %(i), 
+        name='EE-GS-%d' %(gs_i),
         toleranceMethod=BOTH, 
         weightFactorTolerance=1e-06)
 
 #This function generates all meshes
-def Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, numGSs, indexInside, indexOutside):
+#Embedded element constraints for GSs are added here because GS may be trimmed 
+def Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, numGSs, indexOutside, N_CNTs, cnt_struct, cnt_coords):
     
     #Generate the meshes for the GSs
+    Mesh_all_GSs(modelName, matrixName, selectedElementCode, eeMeshSize, numGSs, indexOutside)
+
+    #Generate meshes for the CNTs
+    Generate_CNT_Meshes(modelName, N_CNTs, cnt_struct, cnt_coords)
+
+    #Generate the mesh for the matrix
+    Generate_Matrix_Mesh(modelName, matrixName, selectedElementCode)
+        
+    #This seems to be required by Abaqus
+    mdb.models[modelName].rootAssembly.regenerate()
+
+#Mesh all GSs
+def Mesh_all_GSs(modelName, matrixName, selectedElementCode, eeMeshSize, numGSs, indexOutside):
     
     #Index to iterate over the GSs that are partially outside the RVE
     idx = 0
@@ -667,7 +987,7 @@ def Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, numG
             gs_inst_str = string_instance('GS', gs_i)
             
         #Create embedded elments constraint
-        Create_Embedded_Elements(modelName, matrixName, gs_i, gs_inst_str)
+        Create_Embedded_Elements_GSs(modelName, matrixName, gs_i, gs_inst_str)
         
         #Mesh each graphene sheet if the flag for meshing is set to 1
         #(meshing: GS mesh element size < Matrix mesh element size)
@@ -682,15 +1002,8 @@ def Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, numG
                 
                 #Mesh a GS that is partially outside the RVE
                 Remesh_partial_GS(modelName, gs_part_str, selectedElementCode, eeMeshSize)
-                
-        #Generate the mesh for the matrix
-        Generate_Matrix_Mesh(modelName, matrixName, selectedElementCode)
-        
-        #This seems to be required by Abaqus
-        mdb.models[modelName].rootAssembly.regenerate()
 
-
-#Mesh GS
+#Mesh single GS
 def Mesh_GS(model, code, meshSize, gs_part_str):
     
     GS_model = mdb.models[model]
@@ -728,6 +1041,129 @@ def Remesh_partial_GS(modelName, gs_part_str, selectedElementCode, eeMeshSize):
     #Generate mesh
     mdb.models[modelName].parts[gs_part_str].generateMesh()
 
+#This function generates the mesh for the CNTs
+def Generate_CNT_Meshes(modelName, N_CNTs, cnt_struct, cnt_coords):
+
+    #Number of accumulated points
+    acc_pts = 0
+
+    #Go through every CNT to mesh each of them
+    for cnt_i in range(1, N_CNTs+1):
+
+        #Number of points in CNTi and its radius
+        N_p = int(cnt_struct[cnt_i][0])
+        cnt_rad = cnt_struct[cnt_i][1]
+
+        #Get the string for the CNT part
+        cnt_str = string_part('CNT', cnt_i)
+
+        #Mesh cnt_i, use its radius as the element size
+        #deviationFactor and minSizeFactor have the default values from Abaqus
+        mdb.models[modelName].parts[cnt_str].seedPart(
+            deviationFactor=0.1, minSizeFactor=0.1, size=cnt_struct[cnt_i][1])
+        mdb.models[modelName].parts[cnt_str].generateMesh()
+
+        #Get the number of nodes generated
+        num_nodes = mdb.models[modelName].parts[cnt_str].getMeshStats((mdb.models[modelName].parts[cnt_str].cells,)).numNodes
+        #print(cnt_str,' nodes=', num_nodes)
+
+        #Check the number of nodes in the mesh
+        if num_nodes == 0:
+
+            #The CNT was not meshed
+            #Cut the CNT cell where needed
+            Partition_CNT_Cell(modelName, cnt_rad, acc_pts, acc_pts+N_p-1, cnt_coords, cnt_str)
+
+            #Try to mesh again
+            mdb.models[modelName].parts[cnt_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=cnt_struct[cnt_i][1])
+            mdb.models[modelName].parts[cnt_str].generateMesh()
+
+        #Increase the number of accumulated points
+        acc_pts += N_p
+
+#This function cuts a CNT cell when it could not be meshed
+def Partition_CNT_Cell(modelName, cnt_rad, cnt_start, cnt_end, cnt_coords, str_part):
+
+    #Half of the cylinder height
+    hc = cnt_rad*0.1
+
+    #Iterate over the CNT points, starting on the secont point and finishing on the previous to last point
+    for i in range(cnt_start+1, cnt_end): 
+
+        #print('i=',i-cnt_start,' cells=', len(mdb.models[modelName].parts[str_part].cells))
+
+        #Get the points of the CNT segments that share point i
+        #End point of first CNT segment
+        P1 = cnt_coords[i-1]
+        #Point shared by both CNT segments
+        P2 = cnt_coords[i]
+        #End point of second CNT segment
+        P3 = cnt_coords[i+1]
+
+        #Get the unit vector of first CNT segment
+        v1 = get_unit_vector(P2, P1)
+
+        #Get the unit vector of second CNT segment
+        v2 = get_unit_vector(P2, P3)
+
+        #Calculate the dot product of v1 and v2 to obtain the cosine of the angle between them
+        #Need the dot product with negative sign
+        cosV = - dot(v1,v2)
+
+        #Check if need to cut the cell at point P2
+        if cosV < cos45:
+            #The CNT cell needs to be cut at P2
+
+            #Get a unit vector that goes along the plane that bisects the angle 
+            #between v1 and v2
+            vm = make_unit((v1[0]+v2[0], v1[1]+v2[1], v1[2]+v2[2]))
+            #print('vm')
+
+            #Vector normal to v1, v2, and vm (all three lie on the same plane)
+            N3 = cross(v2, v1)
+
+            #Get the normal for the plane at the midpoint
+            #Since both v1 and vm are unit vectors, N is also a unit vector
+            N = cross(N3, vm)
+
+            #Calculate a displacement to set the points of the cylinder
+            disp = (N[0]*hc, N[1]*hc, N[2]*hc)
+
+            #Calculate first point of Cylinder height
+            C1 = (P2[0]+disp[0], P2[1]+disp[1], P2[2]+disp[2])
+
+            #Calculate second point of Cylinder height
+            C2 = (P2[0]-disp[0], P2[1]-disp[1], P2[2]-disp[2])
+
+            #Calculate vector along the plane
+            #Since both v1 and vm are unit vectors, S is also a unit vector
+            S = cross(N3, v1)
+
+            #Calculate the radius of the cylinder that will be used to select the points needed to cut the cell
+            #Also increase the radius 0.5% so that vertices are not missed die to numerical erros
+            rad_cyl = cnt_rad*1.005/(-dot(vm, S))
+            #print('rad_cyl=',rad_cyl)
+
+            #Select the edges enclosed by the cylinder with centerpoints C1 and C2 and radius rad_cyl
+            octagon = mdb.models[modelName].parts[str_part].edges.getByBoundingCylinder(center1=C1, center2=C2, radius=rad_cyl)
+            #print('i=',i-cnt_start-1," octagon.len=",len(octagon))
+            #print(octagon)
+            #print(octagon[0])
+            #print(octagon[1])
+            #For some reason, the selected edges are not a tuple
+            #Thus, create a tuple with the edges of the octagon
+            octagon_edges = (octagon[0], octagon[1], octagon[2], octagon[3], octagon[4], octagon[5], octagon[6], octagon[7])
+
+            #Datum points for testing
+            #if i == cnt_start+1:
+            #	for j in range(len(octagon)):
+            #		mdb.models[modelName].parts[str_part].DatumPointByCoordinate(coords=octagon[j].pointOn[0])
+
+            #Use the octagon edges in the tuple to partition the cell
+            mdb.models[modelName].parts[str_part].PartitionCellByPatchNEdges(
+                cell=mdb.models[modelName].parts[str_part].cells.findAt(P3, ),
+                edges=octagon_edges)
+
 #Mesh the matrix
 def Generate_Matrix_Mesh(modelName, matrixName, selectedElementCode):
                 
@@ -740,8 +1176,65 @@ def Generate_Matrix_Mesh(modelName, matrixName, selectedElementCode):
         regions=(mdb.models[modelName].parts[matrixName].cells.getSequenceFromMask(('[#1 ]', ), ), ))
     mdb.models[modelName].parts[matrixName].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=matrixMeshSize)
     mdb.models[modelName].parts[matrixName].generateMesh()
-        
-        
+
+#This function creates all sets for the nodes that correspond to the centerline of that CNT
+def Create_All_Sets_For_CNT_Points(modelName, N_CNTs, cnt_struct, cnt_coords):
+
+    #Initializae the number of accumulated points to zero
+    acc_pts = 0
+
+    #Iterate over all CNTs
+    for cnt_i in range(1, N_CNTs+1):
+
+        #Number of points in CNTi and its radius
+        N_p = int(cnt_struct[cnt_i][0])
+        cnt_rad = cnt_struct[cnt_i][1]
+
+        #Get the string for part corresponding to cnt_i
+        cnt_str = string_instance('CNT', cnt_i)
+
+        #Create a set for the nodes at the centerline of cnt_i
+        Create_Set_For_CNT_Points(modelName, cnt_i, cnt_rad, acc_pts, acc_pts+N_p-1, cnt_coords, cnt_str)
+
+        #Increase the number of accumulated points
+        acc_pts += N_p  
+
+#This function creates a set for the nodes that correspond to the centerline of that CNT
+def Create_Set_For_CNT_Points(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords, cnt_str):
+
+    #Calculate radius for serching nodes
+    new_rad = cnt_rad/4;
+
+    #Get the name of the node set
+    node_set_str = cnt_string_node_set(cnt_i)
+
+    #Create a set with the name of the node set and containing the first point in the CNT
+    mdb.models[modelName].rootAssembly.Set(
+        nodes=mdb.models[modelName].rootAssembly.instances[cnt_str].nodes.getByBoundingSphere(center=cnt_coords[cnt_start], radius=new_rad),
+        name=node_set_str)
+
+    #Iterate over all points of the CNT, starting on the second point since the first point is already in the set
+    for i in range(cnt_start+1, cnt_end+1):
+
+        #Create a temporary set with node i
+        node_set_tmp = mdb.models[modelName].rootAssembly.Set(
+            nodes=mdb.models[modelName].rootAssembly.instances[cnt_str].nodes.getByBoundingSphere(center=cnt_coords[i], radius=new_rad),
+            name='tmp_set')
+
+        #Merge two sets
+        #mdb.models[modelName].rootAssembly.SetByMerge(
+        #	name=node_set_str, 
+        #	sets=(node_set_tmp, mdb.models[modelName].rootAssembly.sets[node_set_str]))
+
+        #Perform union of two sets
+        mdb.models[modelName].rootAssembly.SetByBoolean(
+            name=node_set_str,
+            operation=UNION,
+            sets=(node_set_tmp, mdb.models[modelName].rootAssembly.sets[node_set_str]))
+
+    #Print the length of the set
+    print('%s nodes=%d points=%d'%(node_set_str, len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes), cnt_end+1-cnt_start))
+
 #Sets needed to create the PBC equations
 def Create_Set_for_PBC(model, matrixName, P0, Lxyz):
 
@@ -869,21 +1362,40 @@ with open(csv_geomFile) as file_geom:
     #data_geom = list(csv.reader(file_geom, quoting=csv.QUOTE_NONNUMERIC))
     (P0, Lxyz) = list(csv.reader(file_geom, quoting=csv.QUOTE_NONNUMERIC))
 
+#Read CNT point coordinates
+with open(coord_file) as f:
+    #x = csv.reader(f, quoting=csv.QUOTE_NONNUMERIC)
+    #cnt_coords = list(x)
+    cnt_coords = list(csv.reader(f, quoting=csv.QUOTE_NONNUMERIC))
+#print(cnt_coords[0])
+#print(cnt_coords[0][0])
+
+#Read the number of points per CNT and the radii
+with open(struct_file) as f:
+    #x = csv.reader(f, quoting=csv.QUOTE_NONNUMERIC)
+    #cnt_struct = list(x)
+    cnt_struct = list(csv.reader(f, quoting=csv.QUOTE_NONNUMERIC))
+#print(cnt_struct[0])
+#print(int(cnt_struct[0][0]))
+
 #Get the corner of the RVE opposite to P0
 corner = (P0[0]+Lxyz[0], P0[1]+Lxyz[1], P0[2]+Lxyz[2])
 
-#Calculate the number of GNPs
-numRows_gnp = len(data_gnp)
+#Get the number of GNPs
+N_GSs = len(data_gnp)
+    
+#Get the number of CNTs
+N_CNTs = int(cnt_struct[0][0])
 
-print('There are ' + str(numRows_gnp) + ' graphene sheets inside the RVE.')
+print('There are ' + str(N_GSs) + ' graphene sheets inside the RVE.')
 
 #Name of the job to be used based on its parameters
 #GS-'Number of GS in the RVE'
 #EPS-'Number of elements per side'
 #MR-'Mesh ratio' (EmbeddedMesh/HostMesh)
-jobName = 'GS-'+str(numRows_gnp)+'_EPS-'+str(elementsPerSide)+'_MR-'+str(int(100*meshRatio))
+jobName = 'CNT-'+str(N_CNTs)+'GS-'+str(N_GSs)+'_EPS-'+str(elementsPerSide)+'_MR-'+str(int(100*meshRatio))
 
-#Number of GS laying inside/outside the RVE
+#Arrays to stor GSs laying inside or partially outside the RVE
 indexOutside = []
 indexInside = []
 
@@ -904,13 +1416,21 @@ Create_Matrix(modelName, sheetSize, matrixName, P0, Lxyz)
 #Creating a bounding box
 Create_BiggerBox(modelName, sheetSize, biggerBoxName, P0, Lxyz, data_gnp)
 
+#Generate all CNT parts
+CNT_Parts_All(modelName, N_CNTs, cnt_struct, cnt_coords)
+
 #Creating each material
+#Matrix
 Create_Material(modelName, matrixMaterial, matrixDensity, matrixModulus, matrixPoissonR, matrixExpCoeff, matrixThermConductivity, matrixSpecHeat, matrixElecConductivity)
-Create_Material(modelName, fillerMaterial, fillerDensity, fillerModulus, fillerPoissonR, fillerExpCoeff, fillerThermConductivity, fillerSpecHeat, fillerElecConductivity)
+#GSs
+Create_Material(modelName, gsMaterial, gsDensity, gsYoungsModulus, gsPoissonR, gsExpCoeff, gsThermConductivity, gsSpecHeat, gsElecConductivity)
+#CNTs
+Create_Material(modelName, cntMaterial, cntDensity, cntYoungsModulus, cntPoissonR, cntExpCoeff, cntThermConductivity, cntSpecHeat, cntElecConductivity)
 
 #Creating a section for each material
 Create_Section(modelName, matrixMaterial)
-Create_Section(modelName, fillerMaterial)
+Create_Section(modelName, gsMaterial)
+Create_Section(modelName, cntMaterial)
 
 #-----------------------------------START: CREATE ASSEMBLY-----------------------------------#
 
@@ -933,7 +1453,18 @@ Assign_Section(modelName, matrixMaterial, matrixName)
 #    sectionName=matrixMaterial, thicknessAssignment=FROM_SECTION)
 
 #Create parts and instances for GSs
-Create_All_GSs(modelName, fillerMaterial, sheetSize, numRows_gnp, P0, corner)
+#Create sets for GS vertices
+#Assign material to section for each GS
+Create_All_GSs(modelName, gsMaterial, sheetSize, N_GSs, P0, corner)
+
+#Create instances for CNTs
+Generate_CNT_Assembly(modelName, N_CNTs)
+
+#Create sets that will be used when creating the embedded element constraints for CNTs
+Sets_For_Embedded_Elements_CNTs(modelName, P0, Lxyz, N_CNTs, cnt_struct, cnt_coords, matrixName, strHost)
+
+#Create embedded elements constraints for CNTs
+Embedded_Elements_Constraints_CNTs(modelName, N_CNTs, matrixName, strHost)
 
 #------------------------------------END: CREATE ASSEMBLY------------------------------------#
 
@@ -944,7 +1475,7 @@ Create_All_GSs(modelName, fillerMaterial, sheetSize, numRows_gnp, P0, corner)
 #Create sets for each face of the RVE
 Create_Set_for_PBC(modelName, matrixName, P0, Lxyz)
 
-#Create the sets for
+#Create the sets for the two corners of the matrix that are used in the C++ code
 Create_Sets_for_Matrix(modelName, P0, corner, matrixName)
 
 #Add the equations that define the PBC
@@ -954,7 +1485,6 @@ PBC_Equations(modelName)
 Add_Boundary_Conditions(modelName, tempApplied)
 
 print('Periodic boundary conditions have been applied.')
-#, 'COORD'
 
 #Set the output request
 mdb.models[modelName].fieldOutputRequests['F-Output-1'].setValues(variables=('S', 'E', 'U'))
@@ -963,19 +1493,25 @@ mdb.models[modelName].fieldOutputRequests['F-Output-1'].setValues(variables=('S'
 
 #---------------------------------------START: MESHING---------------------------------------#
 
-Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, numRows_gnp, indexInside, indexOutside)
+#Generate meshes
+#Embedded element constraints for GSs are added here because GS may be trimmed 
+Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, N_GSs, indexOutside, N_CNTs, cnt_struct, cnt_coords)
+
+#Create sets for central CNT nodes
+#NOTE: Sets are generated on root assembly
+Create_All_Sets_For_CNT_Points(modelName, N_CNTs, cnt_struct, cnt_coords)
 
 print('The model has been completed in %s seconds.' % round(time.time() - start_time, 1))
 
 #Check if files for re-meshing the model are needed
 if reMeshModel == 1:
     #Create files that contain the index of each GS depending on its state (inside or outside the RVE)
-    textfile_IO = open('GS-'+str(numRows_gnp)+'_indexOutside.txt', 'w')
+    textfile_IO = open('GS-'+str(N_GSs)+'_indexOutside.txt', 'w')
     for element in indexOutside:
         textfile_IO.write(str(element)+',')
     textfile_IO.close()
 
-    textfile_II = open('GS-'+str(numRows_gnp)+'_indexInside.txt', 'w')
+    textfile_II = open('GS-'+str(N_GSs)+'_indexInside.txt', 'w')
     for element in indexInside:
         textfile_II.write(str(element)+',')
     textfile_II.close()
