@@ -73,8 +73,6 @@ elem_Disp = [C3D8R, C3D6, C3D4]
 # 0 = no
 # 1 = yes
 createJob = 1
-#Job name
-#jobName = 'Test_GS_12'
 #Submit job: 
 # 0 = no
 # 1 = yes
@@ -131,6 +129,11 @@ fillerElecConductivity = 10e7
 fillerThermConductivity = 3000
 #Define the specific heat (J/mol*K) - Because of Abaqus needs, but doesn't affect the thermo-mechanical simulation (could be = 1)
 fillerSpecHeat = 7
+#Maximum dimensions
+lxMax = 1.0
+lyMax = 1.0
+tMax = 0.03
+margin = 1.01*sqrt(lxMax*lxMax + lyMax*lyMax + tMax*tMax)
 
 ###################### Step flags and variables
 #Step name
@@ -237,18 +240,7 @@ def Create_Matrix(model, sheetsz, part, P0, Lxyz):
     del mdb.models[model].sketches['__profile__']
 
 #Create a box bigger than the RVE, which is used to trim the GNPs
-def Create_BiggerBox(model, sheetsz, part, P0, Lxyz, data_gnp):
-    
-    #Get the geometric parameters of the first GNP
-    GS_geometry = data_gnp[1]
-    
-    #Get the dimensions of the first GNP
-    length_x = GS_geometry[0]
-    length_y = GS_geometry[1]
-    thickness = GS_geometry[2]
-    
-    #Calculate the diagonal of the first GNP
-    margin = math.ceil(math.sqrt(length_x*length_x+length_y*length_y+thickness*thickness))
+def Create_BiggerBox(model, sheetsz, part, P0, Lxyz, margin):
     
     #The length of the bigger box along each direction is the same as the RVE plus the margin
     lengthBiggerBox_x = Lxyz[0]+2*margin
@@ -265,15 +257,27 @@ def Create_BiggerBox(model, sheetsz, part, P0, Lxyz, data_gnp):
         depth=lengthBiggerBox_z, sketch=mdb.models[model].sketches['__profile__'])
     del mdb.models[model].sketches['__profile__']
 
+def Create_Matrix_Instance(modelName, matrixName, P0):
+
+    #Instance name of matrix
+    str_mat = matrixName + '-1'
+
+    #Create an instance of the matrix
+    mdb.models[modelName].rootAssembly.Instance(dependent=ON, name=str_mat, part=mdb.models[modelName].parts[matrixName])
+
+    #Check if the instance needs to bre translated along the z-axis
+    if abs(P0[2]) > Zero:
+
+        #z-coordinate of "min point" of RVE is non-zero
+        #Current coordinates of min point are (P0[0], P0[1], 0)
+        #Move that corner to (P0[0], P0[1], P0[2])
+        #i.e: endpoint - starting point = (P0[0], P0[1], P0[2]) - (P0[0], P0[1], 0)
+         mdb.models[modelName].rootAssembly.translate(
+             instanceList=(str_mat, ),
+             vector=(0.0, 0.0, P0[2]))
+
 #Create the hollow box that is used to cut all GS that are partially outside the RVE
-def Create_CuttingBox(model, partMatrix, partBox):
-    GS_geometry = data_gnp[1]
-
-    length_x = GS_geometry[0]
-    length_y = GS_geometry[1]
-    thickness = GS_geometry[2]
-
-    margin = math.ceil(math.sqrt(length_x*length_x+length_y*length_y+thickness*thickness))
+def Create_CuttingBox(model, partMatrix, partBox, margin):
     
     #Create an instance of the bigger box
     mdb.models[model].rootAssembly.Instance(dependent=OFF, name=partBox + '-1', 
@@ -755,19 +759,19 @@ def Create_Set_for_PBC(model, matrixName, P0, Lxyz):
     #Set containing the 6 faces of the RVE (temperature will be applied to this set)
     modelRoot.Set(
         faces=modelRoot.instances[matrixName + '-1'].faces.findAt(
-            ((Lxyz[0], half_y, half_z),),
+            ((corner[0], half_y, half_z),),
             ((P0[0], half_y, half_z),),
-            ((half_x, Lxyz[1], half_z),),
+            ((half_x, corner[1], half_z),),
             ((half_x, P0[1], half_y),),
-            ((half_x, half_y, Lxyz[2]),),
+            ((half_x, half_y, corner[2]),),
             ((half_x, half_y, P0[2]),),),
         name='External_Faces')
 
     #If RPs are needed, then this sould be enabled
     #Creating reference points further than the RVE length and taking its ID
-    RP_X_id = modelRoot.ReferencePoint(point=(Lxyz[0]*2.0, half_y, half_z)).id
-    RP_Y_id = modelRoot.ReferencePoint(point=(half_x, Lxyz[1]*2.0, half_z)).id
-    RP_Z_id = modelRoot.ReferencePoint(point=(half_x, half_y, Lxyz[2]*2.0)).id
+    RP_X_id = modelRoot.ReferencePoint(point=(corner[0]+Lxyz[0], half_y, half_z)).id
+    RP_Y_id = modelRoot.ReferencePoint(point=(half_x, corner[1]+Lxyz[1], half_z)).id
+    RP_Z_id = modelRoot.ReferencePoint(point=(half_x, half_y, corner[2]+Lxyz[2])).id
 
     #Creating a set for each reference point (used in the PBC equations)
     modelRoot.Set(name='RP_X', referencePoints=(modelRoot.referencePoints[RP_X_id],))
@@ -776,15 +780,15 @@ def Create_Set_for_PBC(model, matrixName, P0, Lxyz):
 
     #Set for each face of the RVE (used in the PBC equations)
     modelRoot.Set(faces=
-        modelRoot.instances[matrixName + '-1'].faces.findAt(((Lxyz[0], half_y, half_z), )), name='X_positive')
+        modelRoot.instances[matrixName + '-1'].faces.findAt(((corner[0], half_y, half_z), )), name='X_positive')
     modelRoot.Set(faces=
         modelRoot.instances[matrixName + '-1'].faces.findAt(((P0[0], half_y, half_z), )), name='X_negative')
     modelRoot.Set(faces=
-        modelRoot.instances[matrixName + '-1'].faces.findAt(((half_x, Lxyz[1], half_z), )), name='Y_positive')
+        modelRoot.instances[matrixName + '-1'].faces.findAt(((half_x, corner[1], half_z), )), name='Y_positive')
     modelRoot.Set(faces=
         modelRoot.instances[matrixName + '-1'].faces.findAt(((half_x, P0[1], half_z), )), name='Y_negative')
     modelRoot.Set(faces=
-        modelRoot.instances[matrixName + '-1'].faces.findAt(((half_x, half_y, Lxyz[2]), )), name='Z_positive')
+        modelRoot.instances[matrixName + '-1'].faces.findAt(((half_x, half_y, corner[2]), )), name='Z_positive')
     modelRoot.Set(faces=
         modelRoot.instances[matrixName + '-1'].faces.findAt(((half_x, half_y, P0[2]), )), name='Z_negative')
 
@@ -877,12 +881,6 @@ numRows_gnp = len(data_gnp)
 
 print('There are ' + str(numRows_gnp) + ' graphene sheets inside the RVE.')
 
-#Name of the job to be used based on its parameters
-#GS-'Number of GS in the RVE'
-#EPS-'Number of elements per side'
-#MR-'Mesh ratio' (EmbeddedMesh/HostMesh)
-jobName = 'GS-'+str(numRows_gnp)+'_EPS-'+str(elementsPerSide)+'_MR-'+str(int(100*meshRatio))
-
 #Number of GS laying inside/outside the RVE
 indexOutside = []
 indexInside = []
@@ -902,7 +900,7 @@ eeMeshSize = matrixMeshSize*meshRatio
 Create_Matrix(modelName, sheetSize, matrixName, P0, Lxyz)
 
 #Creating a bounding box
-Create_BiggerBox(modelName, sheetSize, biggerBoxName, P0, Lxyz, data_gnp)
+Create_BiggerBox(modelName, sheetSize, biggerBoxName, P0, Lxyz, margin)
 
 #Creating each material
 Create_Material(modelName, matrixMaterial, matrixDensity, matrixModulus, matrixPoissonR, matrixExpCoeff, matrixThermConductivity, matrixSpecHeat, matrixElecConductivity)
@@ -918,12 +916,13 @@ Create_Section(modelName, fillerMaterial)
 mdb.models[modelName].rootAssembly.DatumCsysByDefault(CARTESIAN)
 
 #Create instance of the matrix
-mdb.models[modelName].rootAssembly.Instance(dependent=ON, name=matrixName + '-1', part=mdb.models[modelName].parts[matrixName])
+Create_Matrix_Instance(modelName, matrixName, P0)
+
 #Create instance of the bigger box
 mdb.models[modelName].rootAssembly.Instance(dependent=ON, name=biggerBoxName + '-1', part=mdb.models[modelName].parts[biggerBoxName])
 
 #Create the box that will be used to cut all GS that are partially outside the RVE
-Create_CuttingBox(modelName, matrixName, biggerBoxName)
+Create_CuttingBox(modelName, matrixName, biggerBoxName, margin)
 
 #Assign section to matrix part
 Assign_Section(modelName, matrixMaterial, matrixName)
@@ -942,7 +941,7 @@ Create_All_GSs(modelName, fillerMaterial, sheetSize, numRows_gnp, P0, corner)
 #Defining periodic boundary conditions
 
 #Create sets for each face of the RVE
-Create_Set_for_PBC(modelName, matrixName, P0, Lxyz)
+Create_Set_for_PBC(modelName, matrixName, P0, Lxyz, corner)
 
 #Create the sets for
 Create_Sets_for_Matrix(modelName, P0, corner, matrixName)
@@ -984,6 +983,13 @@ if reMeshModel == 1:
 ###################################---JOB SUBMISSION---######################################
 
 if createJob == 1:
+
+    #Name of the job to be used based on its parameters
+    #GS-'Number of GSs in the RVE'
+    #EPS-'Number of elements per side'
+    #MR-'Mesh ratio' (EmbeddedMesh/HostMesh)x100
+    jobName = 'GS-'+str(numRows_gnp)+'_EPS-'+str(elementsPerSide)+'_MR-'+str(int(100*meshRatio))
+
     mdb.Job(atTime=None, contactPrint=OFF, description='', echoPrint=OFF, 
         explicitPrecision=SINGLE, getMemoryFromAnalysis=True, historyPrint=OFF, 
         memory=90, memoryUnits=PERCENTAGE, model=modelName, modelPrint=OFF, 
