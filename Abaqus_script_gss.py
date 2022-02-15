@@ -177,6 +177,9 @@ sheetSize = 1.0
 #Conversion factor feom radians to degrees
 rad2deg = 180/math.pi
 
+#"Zero" for comparing floating point numbers
+Zero = 1e-7
+
 ######################################---STRING FUNCTIONS---########################################
 
 #This function generates a string for the filler part
@@ -243,14 +246,17 @@ def Create_Matrix(model, sheetsz, part, P0, Lxyz):
 def Create_BiggerBox(model, sheetsz, part, P0, Lxyz, margin):
     
     #The length of the bigger box along each direction is the same as the RVE plus the margin
-    lengthBiggerBox_x = Lxyz[0]+2*margin
-    lengthBiggerBox_y = Lxyz[1]+2*margin
-    lengthBiggerBox_z = Lxyz[2]+2*margin
+    lengthBiggerBox_x = Lxyz[0]+2.0*margin
+    lengthBiggerBox_y = Lxyz[1]+2.0*margin
+    lengthBiggerBox_z = Lxyz[2]+2.0*margin
 
     #Create the geometry for the bigger box
+    #Draw the face on the xy plane using two points of a rectangle
     mdb.models[model].ConstrainedSketch(name='__profile__', sheetSize=sheetsz)
+    #Note that coordinates of the min point will be (P0[0]-margin, P0[1]-margin, 0)
     mdb.models[model].sketches['__profile__'].rectangle(
-        point1=(P0[0], P0[1]), point2=(lengthBiggerBox_x, lengthBiggerBox_y))
+        point1=(P0[0]-margin, P0[1]-margin), 
+        point2=(P0[0]-margin+lengthBiggerBox_x, P0[1]-margin+lengthBiggerBox_y))
     mdb.models[model].Part(dimensionality=THREE_D, name=part, type=DEFORMABLE_BODY)
 
     mdb.models[model].parts[part].BaseSolidExtrude(
@@ -277,13 +283,18 @@ def Create_Matrix_Instance(modelName, matrixName, P0):
              vector=(0.0, 0.0, P0[2]))
 
 #Create the hollow box that is used to cut all GS that are partially outside the RVE
-def Create_CuttingBox(model, partMatrix, partBox, margin):
+def Create_CuttingBox(model, partMatrix, partBox, P0, margin):
     
     #Create an instance of the bigger box
     mdb.models[model].rootAssembly.Instance(dependent=OFF, name=partBox + '-1', 
         part=mdb.models[model].parts[partBox])
+
+    #Current coordinates of min point for partBox are (P0[0]-margin, P0[1]-margin, 0)
+    #Move that corner to (P0[0]-margin, P0[1]-margin, P0[2]-margin)
+    #i.e: endpoint - starting point = 
+    # (P0[0]-margin, P0[1]-margin, 0) - (P0[0]-margin, P0[1]-margin, P0[2]-margin)
     mdb.models[model].rootAssembly.translate(instanceList=(partBox + '-1', ), 
-        vector=(-margin, -margin, -margin))
+        vector=(0.0, 0.0, P0[2]-margin))
     
     #Create the hollow box by cutting the matrix off of the bigger box
     mdb.models[model].rootAssembly.InstanceFromBooleanCut(
@@ -687,11 +698,11 @@ def Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, numG
                 #Mesh a GS that is partially outside the RVE
                 Remesh_partial_GS(modelName, gs_part_str, selectedElementCode, eeMeshSize)
                 
-        #Generate the mesh for the matrix
-        Generate_Matrix_Mesh(modelName, matrixName, selectedElementCode)
+    #Generate the mesh for the matrix
+    Generate_Matrix_Mesh(modelName, matrixName, selectedElementCode)
         
-        #This seems to be required by Abaqus
-        mdb.models[modelName].rootAssembly.regenerate()
+    #This seems to be required by Abaqus
+    mdb.models[modelName].rootAssembly.regenerate()
 
 
 #Mesh GS
@@ -747,7 +758,7 @@ def Generate_Matrix_Mesh(modelName, matrixName, selectedElementCode):
         
         
 #Sets needed to create the PBC equations
-def Create_Set_for_PBC(model, matrixName, P0, Lxyz):
+def Create_Set_for_PBC(model, matrixName, P0, Lxyz, corner):
 
     modelRoot = mdb.models[model].rootAssembly
     
@@ -922,7 +933,7 @@ Create_Matrix_Instance(modelName, matrixName, P0)
 mdb.models[modelName].rootAssembly.Instance(dependent=ON, name=biggerBoxName + '-1', part=mdb.models[modelName].parts[biggerBoxName])
 
 #Create the box that will be used to cut all GS that are partially outside the RVE
-Create_CuttingBox(modelName, matrixName, biggerBoxName, margin)
+Create_CuttingBox(modelName, matrixName, biggerBoxName, P0, margin)
 
 #Assign section to matrix part
 Assign_Section(modelName, matrixMaterial, matrixName)
