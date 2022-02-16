@@ -812,14 +812,14 @@ def PBC_Equations(model):
     #E.g.: 1*X_positive + 0.5*RP_X + (-1*X_negative) + 0.5*RP_X = X_Positive - X_Negative + RP_X = 0
     #If RPs are needed, then this sould be enabled
 
-    modelRoot.Equation(name='EQ_X_Positive', terms=((1.0, 'X_positive', 1), (0.5, 'RP_X', 1)))
-    modelRoot.Equation(name='EQ_X_Negative', terms=((-1.0, 'X_negative', 1), (0.5, 'RP_X', 1)))
+    modelRoot.Equation(name='EQ_X_Positive', terms=((1.0, 'X_positive', 1), (-0.5, 'RP_X', 1)))
+    modelRoot.Equation(name='EQ_X_Negative', terms=((-1.0, 'X_negative', 1), (-0.5, 'RP_X', 1)))
 
-    modelRoot.Equation(name='EQ_Y_Positive', terms=((1.0, 'Y_positive', 2), (0.5, 'RP_Y', 1)))
-    modelRoot.Equation(name='EQ_Y_Negative', terms=((-1.0, 'Y_negative', 2), (0.5, 'RP_Y', 1)))
+    modelRoot.Equation(name='EQ_Y_Positive', terms=((1.0, 'Y_positive', 2), (-0.5, 'RP_Y', 2)))
+    modelRoot.Equation(name='EQ_Y_Negative', terms=((-1.0, 'Y_negative', 2), (-0.5, 'RP_Y', 2)))
 
-    modelRoot.Equation(name='EQ_Z_Positive', terms=((1.0, 'Z_positive', 3), (0.5, 'RP_Z', 1)))
-    modelRoot.Equation(name='EQ_Z_Negative', terms=((-1.0, 'Z_negative', 3), (0.5, 'RP_Z', 1)))
+    modelRoot.Equation(name='EQ_Z_Positive', terms=((1.0, 'Z_positive', 3), (-0.5, 'RP_Z', 3)))
+    modelRoot.Equation(name='EQ_Z_Negative', terms=((-1.0, 'Z_negative', 3), (-0.5, 'RP_Z', 3)))
 
 #GS vertices for instances (after translations and rotation)
 def GS_Instances_NodeSet(model, gs_part_str, gs_inst_str):
