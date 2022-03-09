@@ -693,7 +693,7 @@ def Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, numG
             #the GS is partially outside the RVE
             #AND
             #(if so) the GS was actually meshed, which is done by checking the number of meshed regions
-            if partOut and mdb.models[modelName].rootAssembly.getMeshStats((mdb.models[modelName].rootAssembly.instances[gs_inst_str],)).numMeshedRegions == 0:
+            if partOut and mdb.models[modelName].parts[gs_part_str].getMeshStats((mdb.models[modelName].parts[gs_part_str].cells,)).numNodes == 0:
                 
                 #Mesh a GS that is partially outside the RVE
                 Remesh_partial_GS(modelName, gs_part_str, selectedElementCode, eeMeshSize)
