@@ -26,8 +26,9 @@ import time
 csv_gnpFile = 'gnp_data.csv'
 #Name of the .csv file with the RVE geometry parameters
 csv_geomFile = 'sample_geom.csv'
-
+#Name of the .csv file with the coordinates of CNT points
 coord_file = 'cnt_coordinates.csv'
+#Name of the .csv file with total number of CNTs, number of points per CNT and radius of each CNT
 struct_file = 'cnt_struct.csv'
 
 ###################### Mesh flags and variables
@@ -98,6 +99,8 @@ dispZ = 0.0
 matrixMaterial = 'Polypropylene'
 #Matrix name
 matrixName = 'MATRIX'
+#RVE name
+rveName = 'RVE'
 #String for the host set (i.e., the matrix)
 strHost = 'host_Set'
 #Define the mass density (kg/m3)
@@ -340,21 +343,130 @@ def Select_Elemet_Type(selectedGeomOrder):
         return elem_Disp
 
 #Create matrix
-def Create_Matrix(model, sheetsz, part, P0, Lxyz):
+def Create_RVE(model, sheetsz, rveName, P0, Lxyz):
 
     #Create the matrix geometry
+    #The matrix is the extended RVE
     mdb.models[model].ConstrainedSketch(name='__profile__', sheetSize=sheetsz)
     #Define the two corners of a rectangle on the xy plane
     mdb.models[model].sketches['__profile__'].rectangle(
         point1=(P0[0], P0[1]), point2=(P0[0]+Lxyz[0], P0[1]+Lxyz[1]))
     #Name the part
-    mdb.models[model].Part(dimensionality=THREE_D, name=part, type=DEFORMABLE_BODY)
+    mdb.models[model].Part(dimensionality=THREE_D, name=rveName, type=DEFORMABLE_BODY)
     
     #Use the length along the z-direction as the extrusion depth
-    mdb.models[model].parts[part].BaseSolidExtrude(
+    mdb.models[model].parts[rveName].BaseSolidExtrude(
         depth=Lxyz[2], sketch=mdb.models[model].sketches['__profile__'])
+    
     #Delete the sketch
     del mdb.models[model].sketches['__profile__']
+    
+def Create_Matrix(modelName, P0, Lxyz, Lxyz_ext, matrixName):
+    
+    #Create a sketch
+    mdb.models[modelName].ConstrainedSketch(name='__profile__', sheetSize=200.0)
+    
+    #Define the two corners of a rectangle on the xy plane
+    mdb.models[modelName].sketches['__profile__'].rectangle(
+        point1=(P0[0], P0[1]), 
+        point2=(P0[0]+Lxyz_ext[0], P0[1]+Lxyz_ext[1]))
+        
+    #Name the part
+    mdb.models[modelName].Part(
+        dimensionality=THREE_D, 
+        name=matrixName, 
+        type=DEFORMABLE_BODY)
+    
+    #Use the length along the z-direction as the extrusion depth
+    mdb.models[modelName].parts[matrixName].BaseSolidExtrude(
+        depth=Lxyz_ext[2], 
+        sketch=mdb.models[modelName].sketches['__profile__'])
+        
+    #Delete the sketch
+    del mdb.models[modelName].sketches['__profile__']
+    
+    #Partition cell by point normal
+
+    #First cut
+    #Reference point for cutting the cell
+    P_cut = [P0[0]+Lxyz[0]+matrixMeshSize, P0[1], Lxyz_ext[2] ]
+    #Get reference edge for first and second cut
+    normal_edge = mdb.models[modelName].parts[matrixName].edges.findAt(P_cut, )
+    #Cut all cells
+    mdb.models[modelName].parts[matrixName].PartitionCellByPlanePointNormal(
+        cells=mdb.models[modelName].parts[matrixName].cells, 
+        normal=normal_edge, 
+        point=P_cut)
+    
+    #Second cut
+    #Update reference point for cutting the cell
+    P_cut[0] = P0[0]+matrixMeshSize
+    #Cut cell found using reference point
+    mdb.models[modelName].parts[matrixName].PartitionCellByPlanePointNormal(
+        cells=mdb.models[modelName].parts[matrixName].cells.findAt(P_cut, ), 
+        normal=normal_edge, 
+        point=P_cut)
+    
+    #Third cut
+    #Update reference point for cutting the cell
+    P_cut = [P0[0], P0[1]+matrixMeshSize, Lxyz_ext[2] ]
+    #Datum point for debugging
+    #mdb.models[modelName].parts[matrixName].DatumPointByCoordinate(P_cut)
+    #Update reference edge
+    normal_edge = mdb.models[modelName].parts[matrixName].edges.findAt(P_cut, )
+    #print(normal_edge)
+    #Cut all cells
+    mdb.models[modelName].parts[matrixName].PartitionCellByPlanePointNormal(
+        cells=mdb.models[modelName].parts[matrixName].cells, 
+        normal=normal_edge, 
+        point=P_cut)
+    
+    #Fourth cut
+    #Update reference point for cutting the cell
+    P_cut[1] = P0[1]+Lxyz[1]+matrixMeshSize
+    #Datum point for debugging
+    #mdb.models[modelName].parts[matrixName].DatumPointByCoordinate(P_cut)
+    #Find cells to be cut
+    cells_tmp = mdb.models[modelName].parts[matrixName].cells.getByBoundingBox(
+        P0[0]-halfMatrixMeshSize, P0[1]+halfMatrixMeshSize, -halfMatrixMeshSize, 
+        P0[0]+Lxyz_ext[0]+halfMatrixMeshSize, P0[1]+Lxyz_ext[1]+halfMatrixMeshSize, Lxyz_ext[2]+halfMatrixMeshSize)
+    #print('cells_tmp ',cells_tmp, ' len=', len(cells_tmp))
+    #print(cells_tmp[0])
+    #print(cells_tmp[1])
+    #Update reference edge
+    normal_edge = mdb.models[modelName].parts[matrixName].edges.findAt(P_cut, )
+    #print(normal_edge)
+    #Cut cells
+    mdb.models[modelName].parts[matrixName].PartitionCellByPlanePointNormal(
+        cells=(cells_tmp[0], cells_tmp[1], cells_tmp[2]),
+        normal=normal_edge, 
+        point=P_cut)
+    
+    #Fifth cut
+    #Update reference point for cutting the cell
+    P_cut = [P0[0], P0[1], Lxyz[2]+matrixMeshSize ]
+    #Update reference edge
+    normal_edge = mdb.models[modelName].parts[matrixName].edges.findAt(P_cut, )
+    #Cut all cells
+    mdb.models[modelName].parts[matrixName].PartitionCellByPlanePointNormal(
+        cells=mdb.models[modelName].parts[matrixName].cells, 
+        normal=normal_edge, 
+        point=P_cut)
+    
+    #Sixth cut
+    #Update reference point for cutting the cell
+    P_cut[2] = matrixMeshSize
+    #Update reference edge
+    normal_edge = mdb.models[modelName].parts[matrixName].edges.findAt(P_cut, )
+    #Find cells to be cut
+    cells_tmp = mdb.models[modelName].parts[matrixName].cells.getByBoundingBox(
+        P0[0]-halfMatrixMeshSize, P0[1]-halfMatrixMeshSize, -halfMatrixMeshSize, 
+        P0[0]+Lxyz_ext[0]+halfMatrixMeshSize, P0[1]+Lxyz_ext[1]+halfMatrixMeshSize, Lxyz_ext[2]-halfMatrixMeshSize)
+    #Cut cells using a bounding box
+    mdb.models[modelName].parts[matrixName].PartitionCellByPlanePointNormal(
+        cells=tuple(cells_tmp), 
+        normal=normal_edge, 
+        point=P_cut)
 
 #Create a box bigger than the RVE, which is used to trim the GNPs
 def Create_BiggerBox(model, sheetsz, part, P0, Lxyz, margin):
@@ -384,6 +496,23 @@ def Create_Matrix_Instance(modelName, matrixName, P0):
     #Create an instance of the matrix
     mdb.models[modelName].rootAssembly.Instance(dependent=ON, name=str_mat, part=mdb.models[modelName].parts[matrixName])
 
+    #Translate instance
+    #i.e: endpoint - starting point = (P0[0], P0[1], P0[2]) - (P0[0]+matrixMeshSize, P0[1]+matrixMeshSize, matrixMeshSize)
+    mdb.models[modelName].rootAssembly.translate(
+        instanceList=(str_mat_inst, ),
+        vector=(-matrixMeshSize, -matrixMeshSize, P0[2]-matrixMeshSize))
+
+def Create_RVE_Instance(modelName, rveName, P0):
+
+    #Instance name of RVE
+    rveIntance = rveName + '-1'
+
+    #Create an instance of the RVE
+    mdb.models[modelName].rootAssembly.Instance(
+        dependent=ON, 
+        name=rveIntance, 
+        part=mdb.models[modelName].parts[rveName])
+
     #Check if the instance needs to bre translated along the z-axis
     if abs(P0[2]) > Zero:
 
@@ -392,11 +521,11 @@ def Create_Matrix_Instance(modelName, matrixName, P0):
         #Move that corner to (P0[0], P0[1], P0[2])
         #i.e: endpoint - starting point = (P0[0], P0[1], P0[2]) - (P0[0], P0[1], 0)
          mdb.models[modelName].rootAssembly.translate(
-             instanceList=(str_mat, ),
+             instanceList=(rveIntance, ),
              vector=(0.0, 0.0, P0[2]))
 
 #Create the hollow box that is used to cut all GS that are partially outside the RVE
-def Create_CuttingBox(model, partMatrix, partBox, P0, margin):
+def Create_CuttingBox(model, rveName, partBox, P0, margin):
     
     #Create an instance of the bigger box
     mdb.models[model].rootAssembly.Instance(dependent=OFF, name=partBox + '-1', 
@@ -410,14 +539,12 @@ def Create_CuttingBox(model, partMatrix, partBox, P0, margin):
         vector=(0.0, 0.0, P0[2]-margin))
     
     #Create the hollow box by cutting the matrix off of the bigger box
+    #Both BiggerBox and RVE are not needed, so they are suppressed after creating the Cutter
     mdb.models[model].rootAssembly.InstanceFromBooleanCut(
-        cuttingInstances=(
-            mdb.models[model].rootAssembly.instances[partMatrix + '-1'], ),
+        cuttingInstances=(mdb.models[model].rootAssembly.instances[rveName + '-1'], ),
         instanceToBeCut=mdb.models[model].rootAssembly.instances[partBox + '-1'],
         name='CUTTER',
         originalInstances=SUPPRESS)
-
-    mdb.models[model].rootAssembly.features[partMatrix + '-1'].resume()
 
 #This function generates all CNT parts
 def CNT_Parts_All(model, N_CNTs, cnt_struct, cnt_coords):
@@ -1410,7 +1537,7 @@ N_CNTs = int(cnt_struct[0][0])
 
 print('There are ' + str(N_GSs) + ' graphene sheets inside the RVE.')
 
-#Arrays to stor GSs laying inside or partially outside the RVE
+#Arrays to store GSs laying inside or partially outside the RVE
 indexOutside = []
 indexInside = []
 
@@ -1423,10 +1550,16 @@ matrixMeshSize = Lxyz[1]/elementsPerSide
 #Embedded element mesh size
 eeMeshSize = matrixMeshSize*meshRatio
 
+#Calculate lengths of extended RVE
+Lxyz_ext = (Lxyz[0] + 2.0*matrixMeshSize, Lxyz[1] + 2.0*matrixMeshSize, Lxyz[2] + 2.0*matrixMeshSize)
+
 ####################################---MODEL CREATION---######################################
 
-#Creating the matrix
-Create_Matrix(modelName, sheetSize, matrixName, P0, Lxyz)
+#Creating the matrix part
+Create_Matrix(modelName, P0, Lxyz, Lxyz_ext, matrixName)
+
+#Creating the RVE
+Create_RVE(modelName, sheetSize, rveName, P0, Lxyz)
 
 #Creating a bounding box
 Create_BiggerBox(modelName, sheetSize, biggerBoxName, P0, Lxyz, margin)
@@ -1455,11 +1588,11 @@ mdb.models[modelName].rootAssembly.DatumCsysByDefault(CARTESIAN)
 #Create instance of the matrix
 Create_Matrix_Instance(modelName, matrixName, P0)
 
-#Create instance of the bigger box
-mdb.models[modelName].rootAssembly.Instance(dependent=ON, name=biggerBoxName + '-1', part=mdb.models[modelName].parts[biggerBoxName])
+#Create an RVE instance
+Create_RVE_Instance(modelName, rveName, P0)
 
 #Create the box that will be used to cut all GS that are partially outside the RVE
-Create_CuttingBox(modelName, matrixName, biggerBoxName, P0, margin)
+Create_CuttingBox(modelName, rveName, biggerBoxName, P0, margin)
 
 #Assign section to matrix part
 Assign_Section(modelName, matrixMaterial, matrixName)
