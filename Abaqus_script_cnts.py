@@ -16,27 +16,116 @@ from connectorBehavior import *
 #Pyton libraries
 import math
 import csv
+import time
 
 ######################################---ABAQUS FUNCTIONS---########################################
 
-def matrix_part(P0, Lxyz, str_matrix):
+def matrix_part(modelName, P0, Lxyz, Lxyz_ext, matrixName):
 	
 	#Create a sketch
-	mdb.models['Model-1'].ConstrainedSketch(name='__profile__', sheetSize=200.0)
+	mdb.models[modelName].ConstrainedSketch(name='__profile__', sheetSize=200.0)
 	
 	#Define the two corners of a rectangle on the xy plane
-	mdb.models['Model-1'].sketches['__profile__'].rectangle(
-		point1=(P0[0], P0[1]), point2=(P0[0]+Lxyz[0], P0[1]+Lxyz[1]))
+	mdb.models[modelName].sketches['__profile__'].rectangle(
+	    point1=(P0[0], P0[1]), 
+	    point2=(P0[0]+Lxyz_ext[0], P0[1]+Lxyz_ext[1]))
 		
 	#Name the part
-	mdb.models['Model-1'].Part(dimensionality=THREE_D, name=str_matrix, type= DEFORMABLE_BODY)
+	mdb.models[modelName].Part(
+	    dimensionality=THREE_D, 
+	    name=matrixName, 
+	    type=DEFORMABLE_BODY)
 	
 	#Use the length along the z-direction as the extrusion depth
-	mdb.models['Model-1'].parts[str_matrix].BaseSolidExtrude(depth=Lxyz[2], sketch=
-	    mdb.models['Model-1'].sketches['__profile__'])
+	mdb.models[modelName].parts[matrixName].BaseSolidExtrude(
+		depth=Lxyz_ext[2], 
+		sketch=mdb.models[modelName].sketches['__profile__'])
 	    
 	#Delete the sketch
-	del mdb.models['Model-1'].sketches['__profile__']
+	del mdb.models[modelName].sketches['__profile__']
+	
+	#Partition cell by point normal
+
+	#First cut
+	#Reference point for cutting the cell
+	P_cut = [P0[0]+Lxyz[0]+matrixMeshSize, P0[1], Lxyz_ext[2] ]
+	#Get reference edge for first and second cut
+	normal_edge = mdb.models[modelName].parts[matrixName].edges.findAt(P_cut, )
+	#Cut all cells
+	mdb.models[modelName].parts[matrixName].PartitionCellByPlanePointNormal(
+	    cells=mdb.models[modelName].parts[matrixName].cells, 
+	    normal=normal_edge, 
+	    point=P_cut)
+	
+	#Second cut
+	#Update reference point for cutting the cell
+	P_cut[0] = P0[0]+matrixMeshSize
+	#Cut cell found using reference point
+	mdb.models[modelName].parts[matrixName].PartitionCellByPlanePointNormal(
+	    cells=mdb.models[modelName].parts[matrixName].cells.findAt(P_cut, ), 
+	    normal=normal_edge, 
+	    point=P_cut)
+	
+	#Third cut
+	#Update reference point for cutting the cell
+	P_cut = [P0[0], P0[1]+matrixMeshSize, Lxyz_ext[2] ]
+	#Datum point for debugging
+	#mdb.models[modelName].parts[matrixName].DatumPointByCoordinate(P_cut)
+	#Update reference edge
+	normal_edge = mdb.models[modelName].parts[matrixName].edges.findAt(P_cut, )
+	#print(normal_edge)
+	#Cut all cells
+	mdb.models[modelName].parts[matrixName].PartitionCellByPlanePointNormal(
+	    cells=mdb.models[modelName].parts[matrixName].cells, 
+	    normal=normal_edge, 
+	    point=P_cut)
+	
+	#Fourth cut
+	#Update reference point for cutting the cell
+	P_cut[1] = P0[1]+Lxyz[1]+matrixMeshSize
+	#Datum point for debugging
+	#mdb.models[modelName].parts[matrixName].DatumPointByCoordinate(P_cut)
+	#Find cells to be cut
+	cells_tmp = mdb.models[modelName].parts[matrixName].cells.getByBoundingBox(
+	    P0[0]-halfMatrixMeshSize, P0[1]+halfMatrixMeshSize, -halfMatrixMeshSize, 
+	    P0[0]+Lxyz_ext[0]+halfMatrixMeshSize, P0[1]+Lxyz_ext[1]+halfMatrixMeshSize, Lxyz_ext[2]+halfMatrixMeshSize)
+	#print('cells_tmp ',cells_tmp, ' len=', len(cells_tmp))
+	#print(cells_tmp[0])
+	#print(cells_tmp[1])
+	#Update reference edge
+	normal_edge = mdb.models[modelName].parts[matrixName].edges.findAt(P_cut, )
+	#print(normal_edge)
+	#Cut cells
+	mdb.models[modelName].parts[matrixName].PartitionCellByPlanePointNormal(
+	    cells=(cells_tmp[0], cells_tmp[1], cells_tmp[2]),
+	    normal=normal_edge, 
+	    point=P_cut)
+	
+	#Fifth cut
+	#Update reference point for cutting the cell
+	P_cut = [P0[0], P0[1], Lxyz[2]+matrixMeshSize ]
+	#Update reference edge
+	normal_edge = mdb.models[modelName].parts[matrixName].edges.findAt(P_cut, )
+	#Cut all cells
+	mdb.models[modelName].parts[matrixName].PartitionCellByPlanePointNormal(
+	    cells=mdb.models[modelName].parts[matrixName].cells, 
+	    normal=normal_edge, 
+	    point=P_cut)
+	
+	#Sixth cut
+	#Update reference point for cutting the cell
+	P_cut[2] = matrixMeshSize
+	#Update reference edge
+	normal_edge = mdb.models[modelName].parts[matrixName].edges.findAt(P_cut, )
+	#Find cells to be cut
+	cells_tmp = mdb.models[modelName].parts[matrixName].cells.getByBoundingBox(
+	    P0[0]-halfMatrixMeshSize, P0[1]-halfMatrixMeshSize, -halfMatrixMeshSize, 
+	    P0[0]+Lxyz_ext[0]+halfMatrixMeshSize, P0[1]+Lxyz_ext[1]+halfMatrixMeshSize, Lxyz_ext[2]-halfMatrixMeshSize)
+	#Cut cells using a bounding box
+	mdb.models[modelName].parts[matrixName].PartitionCellByPlanePointNormal(
+	    cells=tuple(cells_tmp), 
+	    normal=normal_edge, 
+	    point=P_cut)
 
 #This function generates a string for the CNT part
 def cnt_string_part(cnt_i):
@@ -254,17 +343,23 @@ def cnt_parts_all(N_CNTs, cnt_struct, cnt_coords):
 		acc_pts += N_p
 
 #This function creates the assembly by creating the instances of each part
-def generate_assembly(N_CNTs, str_matrix):
+def generate_assembly(modelName, N_CNTs, str_matrix):
 	
-	#Necessary command to create assembly
-	mdb.models['Model-1'].rootAssembly.DatumCsysByDefault(CARTESIAN)
+	#Command necessary to create assembly
+	mdb.models[modelName].rootAssembly.DatumCsysByDefault(CARTESIAN)
 	
 	#Generate name for matrix instance
 	str_mat_inst = '%s-1' % (str_matrix)
 	
 	#Create instance for matrix
-	mdb.models['Model-1'].rootAssembly.Instance(dependent=ON, name=str_mat_inst,
-		part=mdb.models['Model-1'].parts[str_matrix])
+	mdb.models[modelName].rootAssembly.Instance(dependent=ON, name=str_mat_inst,
+		part=mdb.models[modelName].parts[str_matrix])
+	
+	#Translate instance
+	#i.e: endpoint - starting point = (P0[0], P0[1], P0[2]) - (P0[0]+matrixMeshSize, P0[1]+matrixMeshSize, matrixMeshSize)
+	mdb.models[modelName].rootAssembly.translate(
+	    instanceList=(str_mat_inst, ),
+	    vector=(-matrixMeshSize, -matrixMeshSize, P0[2]-matrixMeshSize))
 	
 	#Create instances for each CNT
 	for i in range(1, N_CNTs+1):
@@ -276,8 +371,8 @@ def generate_assembly(N_CNTs, str_matrix):
 		str_cnt_inst = cnt_string_instance(i)
 		
 		#Generate CNT instance
-		mdb.models['Model-1'].rootAssembly.Instance(dependent=ON, name=str_cnt_inst,
-			part=mdb.models['Model-1'].parts[str_cnt])		
+		mdb.models[modelName].rootAssembly.Instance(dependent=ON, name=str_cnt_inst,
+			part=mdb.models[modelName].parts[str_cnt])		
 
 #This function creates the matrix material and assigns it to a section
 def materials_and_sections_matrix(str_matrix, matrixMaterial, matrixSection, matrixDensity, matrixModulus, matrixPoissonR):
@@ -316,15 +411,66 @@ def materials_and_sections_cnt(N_CNTs, cntMaterial, cntSection, cntDensity, cntM
 			region=Region(cells=mdb.models['Model-1'].parts[cnt_str].cells.getSequenceFromMask(mask=('[#1 ]', ), )),
 			sectionName=cntSection, thicknessAssignment=FROM_SECTION)
 
+#This function creates an element set that contains the elements in the extended region of the RVE
+#that need to be hidden in the visualization
+def sets_for_elements_to_hide(modelName, matrixName, hideSetName, P0, Lxyz, matrixMeshSize, halfMatrixMeshSize):
+	
+	#Initialize empty array
+	elsToHide = []
+	
+	#String for matrix instance
+	matrixInstance = matrixName + '-1'
+	
+	#Add elements from top
+	elsToHide.append(mdb.models[modelName].rootAssembly.instances[matrixInstance].elements.getByBoundingBox(
+	    P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]+Lxyz[2]-halfMatrixMeshSize,
+	    P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize))
+	#print(P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]+Lxyz[2]-halfMatrixMeshSize)
+	#print(P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize)
+	#mdb.models[modelName].rootAssembly.ReferencePoint(point=(P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]+Lxyz[2]-halfMatrixMeshSize))
+	#mdb.models[modelName].rootAssembly.ReferencePoint(point=(P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize))
+	#mdb.models[modelName].parts[matrixName].DatumPointByCoordinate( (P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]+Lxyz[2]-halfMatrixMeshSize) )
+	#mdb.models[modelName].parts[matrixName].DatumPointByCoordinate( (P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize) )
+	#print('len(elsToHide)=',len(elsToHide))
+	
+	#Add elements from bottom
+	elsToHide.append(mdb.models[modelName].rootAssembly.instances[matrixInstance].elements.getByBoundingBox(
+	    P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]-1.5*matrixMeshSize,
+	    P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+halfMatrixMeshSize))
+	#print('len(elsToHide)=',len(elsToHide))
+	
+	#Add elements from sides
+	#Height along y-axis
+	elsToHide.append(mdb.models[modelName].rootAssembly.instances[matrixInstance].elements.getByBoundingBox(
+	    P0[0]-1.5*matrixMeshSize, P0[1]+Lxyz[1]-halfMatrixMeshSize, P0[2]-1.5*matrixMeshSize,
+	    P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize))
+	#print('len(elsToHide)=',len(elsToHide))
+	elsToHide.append(mdb.models[modelName].rootAssembly.instances[matrixInstance].elements.getByBoundingBox(
+	    P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]-1.5*matrixMeshSize,
+	    P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+halfMatrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize))
+	#print('len(elsToHide)=',len(elsToHide))
+	#Height along x-axis
+	elsToHide.append(mdb.models[modelName].rootAssembly.instances[matrixInstance].elements.getByBoundingBox(
+	    P0[0]+Lxyz[0]-halfMatrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]-1.5*matrixMeshSize,
+	    P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize))
+	#print('len(elsToHide)=',len(elsToHide))
+	elsToHide.append(mdb.models[modelName].rootAssembly.instances[matrixInstance].elements.getByBoundingBox(
+	    P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]-1.5*matrixMeshSize,
+	    P0[0]+halfMatrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize))
+	#print('len(elsToHide)=',len(elsToHide))
+	
+	mdb.models[modelName].rootAssembly.Set(elements=elsToHide, name=hideSetName)
+
 #This function creates the sets that will be used when creating the embedded element constraints
-def sets_for_embedded_elements(P0, Lxyz, N_CNTs, cnt_struct, cnt_coords, str_matrix, str_host):
+def sets_for_embedded_elements(modelName, P0, Lxyz, N_CNTs, cnt_struct, cnt_coords, str_matrix, str_host):
 	
 	#Point at the center of the matrix
 	Pc = (P0[0] + 0.5*Lxyz[0], P0[1] + 0.5*Lxyz[1], P0[2] + 0.5*Lxyz[2]);
 	
 	#Set for the matrix
-	mdb.models['Model-1'].rootAssembly.Set(
-		cells=mdb.models['Model-1'].rootAssembly.instances[str_matrix + '-1'].cells.findAt((Pc, ) ),
+	mdb.models[modelName].rootAssembly.Set(
+		#cells=mdb.models[modelName].rootAssembly.instances[str_matrix + '-1'].cells.findAt((Pc, ) ),
+		cells=mdb.models[modelName].rootAssembly.instances[str_matrix + '-1'].cells,
 		name=str_host)
 		
 	#Variable to keep the count of CNT points
@@ -343,8 +489,8 @@ def sets_for_embedded_elements(P0, Lxyz, N_CNTs, cnt_struct, cnt_coords, str_mat
 		set_str = cnt_str + '_EESet'
 		
 		#Create the set for cnt_i
-		mdb.models['Model-1'].rootAssembly.Set(
-			cells=mdb.models['Model-1'].rootAssembly.instances[cnt_str + '-1'].cells.findAt( (cnt_coords[acc_pts+1],) ),
+		mdb.models[modelName].rootAssembly.Set(
+			cells=mdb.models[modelName].rootAssembly.instances[cnt_str + '-1'].cells.findAt( (cnt_coords[acc_pts+1],) ),
 			name=set_str)
 		
 		#Increase the number of accumulated points
@@ -380,23 +526,24 @@ def embedded_elements_constraints(N_CNTs, str_matrix, str_host):
 			name='EE-Constraint-%d' %(cnt_i))
 	
 #This function generates the mesh for the matrix
-def generate_matrix_mesh(str_matrix, Lxyz, cnt_rad_max):
+def generate_matrix_mesh(str_matrix, Lxyz, matrixMeshSize):
 	
-	#Determine the size of the mesh for the polymer matrix
-	#First determine the size of the elements considering 10 elements per side
-	#In case the sample is not a cube, then first I need to find the shortest side
-	#This side will determine the size of the element
-	el_size_mat = min(Lxyz)/10.0
-	
-	#Check that the element size is at least twice the maximum CNT radius
-	if (el_size_mat - 2*cnt_rad_max <= Zero ):
-		
-		#The element size for the matrix is too small, so set it to be twice the maximum CNT radius
-		el_size_mat = 2*cnt_rad_max
-	
+ # #Determine the size of the mesh for the polymer matrix
+ # #First determine the size of the elements considering 10 elements per side
+ # #In case the sample is not a cube, then first I need to find the shortest side
+ # #This side will determine the size of the element
+ # el_size_mat = min(Lxyz)/10.0
+ #
+ # #Check that the element size is at least twice the maximum CNT radius
+ # if (el_size_mat - 2*cnt_rad_max <= Zero ):
+ #
+ # 	#The element size for the matrix is too small, so set it to be twice the maximum CNT radius
+ # 	el_size_mat = 2*cnt_rad_max
+ #
+
 	#Mesh the matrix
 	#deviationFactor and minSizeFactor have the default values from Abaqus
-	mdb.models['Model-1'].parts[str_matrix].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=el_size_mat)
+	mdb.models['Model-1'].parts[str_matrix].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=matrixMeshSize)
 	mdb.models['Model-1'].parts[str_matrix].generateMesh()
 
 #This function generates the mesh for the CNTs
@@ -526,27 +673,150 @@ def partition_cnt_cell(cnt_rad, cnt_start, cnt_end, cnt_coords, str_part):
 			)
 
 #This functions creates a step and adds the boundary conditions for tension along the z-axis
-def create_step_and_bcs(str_matrix, disp):
+def create_step_and_bcs(modelName, str_matrix, stpName, P0, corner, Lxyz):
 	
-	#Create a step with default values
-	mdb.models['Model-1'].StaticStep(name='Step-1', previous='Initial')
+	modelRoot = mdb.models[modelName].rootAssembly
 	
-	#Add the displacement boundary condition to the "top" face of the sample
-	mdb.models['Model-1'].rootAssembly.Set(
-		faces=mdb.models['Model-1'].rootAssembly.instances[str_matrix + '-1'].faces.getSequenceFromMask( ('[#10 ]', ), ), 
-		name='Dips_BC')
-	mdb.models['Model-1'].DisplacementBC(
-		amplitude=UNSET, createStepName='Step-1', distributionType=UNIFORM, fieldName='', fixed=OFF, localCsys=None, 
-		name='BC-1', 
-		region=mdb.models['Model-1'].rootAssembly.sets['Dips_BC'], 
-		u1=UNSET,u2=UNSET, u3=disp, ur1=UNSET, ur2=UNSET, ur3=UNSET)
+	str_mat_instance = str_matrix + '-1'
+    
+	#Calculate half the lengths of the RVE along each direction
+	half_x = Lxyz[0]*0.5
+	half_y = Lxyz[1]*0.5
+	half_z = Lxyz[2]*0.5
 	
-	#Add the pinned boundary condition to the "bottom" face of the sample
-	mdb.models['Model-1'].rootAssembly.Set(
-		faces=mdb.models['Model-1'].rootAssembly.instances[str_matrix + '-1'].faces.getSequenceFromMask(('[#20 ]', ), ),
-		name='Encastre_BC')
-	mdb.models['Model-1'].EncastreBC(createStepName='Step-1', localCsys=None, name='BC-2', 
-		region=mdb.models['Model-1'].rootAssembly.sets['Encastre_BC'])
+	#Set containing the 6 faces of the RVE (temperature will be applied to this set)
+	#print('External_Faces')
+	modelRoot.Set(
+	    faces=modelRoot.instances[str_mat_instance].faces.findAt(
+	        ((corner[0], half_y, half_z),),
+	        ((P0[0], half_y, half_z),),
+	        ((half_x, corner[1], half_z),),
+	        ((half_x, P0[1], half_y),),
+	        ((half_x, half_y, corner[2]),),
+	        ((half_x, half_y, P0[2]),),),
+	    name='External_Faces')
+	
+	#If RPs are needed, then this sould be enabled
+	#Creating reference points further than the RVE length and taking its ID
+	RP_X_id = modelRoot.ReferencePoint(point=(corner[0]+Lxyz[0], half_y, half_z)).id
+	RP_Y_id = modelRoot.ReferencePoint(point=(half_x, corner[1]+Lxyz[1], half_z)).id
+	RP_Z_id = modelRoot.ReferencePoint(point=(half_x, half_y, corner[2]+Lxyz[2])).id
+	
+	#Creating a set for each reference point (used in the PBC equations)
+	modelRoot.Set(name='RP_X', referencePoints=(modelRoot.referencePoints[RP_X_id],))
+	modelRoot.Set(name='RP_Y', referencePoints=(modelRoot.referencePoints[RP_Y_id],))
+	modelRoot.Set(name='RP_Z', referencePoints=(modelRoot.referencePoints[RP_Z_id],))
+	
+	#Set for each face of the RVE (used in the PBC equations)
+	#print('Individual faces')
+	modelRoot.Set(faces=
+	    modelRoot.instances[str_mat_instance].faces.findAt(((corner[0], half_y, half_z), )), name='X_positive')
+	modelRoot.Set(faces=
+	    modelRoot.instances[str_mat_instance].faces.findAt(((P0[0], half_y, half_z), )), name='X_negative')
+	modelRoot.Set(faces=
+	    modelRoot.instances[str_mat_instance].faces.findAt(((half_x, corner[1], half_z), )), name='Y_positive')
+	modelRoot.Set(faces=
+	    modelRoot.instances[str_mat_instance].faces.findAt(((half_x, P0[1], half_z), )), name='Y_negative')
+	modelRoot.Set(faces=
+	    modelRoot.instances[str_mat_instance].faces.findAt(((half_x, half_y, corner[2]), )), name='Z_positive')
+	modelRoot.Set(faces=
+	    modelRoot.instances[str_mat_instance].faces.findAt(((half_x, half_y, P0[2]), )), name='Z_negative')
+	
+	#############################################################################
+	#Equations with the same reference point (RP_#) terms will be added
+	#E.g.: 1*X_positive + 0.5*RP_X + (-1*X_negative) + 0.5*RP_X = X_Positive - X_Negative + RP_X = 0
+	#If RPs are needed, then this sould be enabled
+	
+	modelRoot = mdb.models[modelName]
+	
+	modelRoot.Equation(name='EQ_X_Positive', terms=((1.0, 'X_positive', 1), (-0.5, 'RP_X', 1)))
+	modelRoot.Equation(name='EQ_X_Negative', terms=((-1.0, 'X_negative', 1), (-0.5, 'RP_X', 1)))
+	
+	modelRoot.Equation(name='EQ_Y_Positive', terms=((1.0, 'Y_positive', 2), (-0.5, 'RP_Y', 2)))
+	modelRoot.Equation(name='EQ_Y_Negative', terms=((-1.0, 'Y_negative', 2), (-0.5, 'RP_Y', 2)))
+	
+	modelRoot.Equation(name='EQ_Z_Positive', terms=((1.0, 'Z_positive', 3), (-0.5, 'RP_Z', 3)))
+	modelRoot.Equation(name='EQ_Z_Negative', terms=((-1.0, 'Z_negative', 3), (-0.5, 'RP_Z', 3)))
+	
+	#############################################################################
+	#Set name of the amplitude
+	ampName = 'Amp-1'
+	
+	#Create a simple amplitude
+	mdb.models[modelName].TabularAmplitude(
+	    data=((0.0, 0.0), (1.0, 1.0)), 
+	    name=ampName, 
+	    smooth=SOLVER_DEFAULT, 
+	    timeSpan=STEP)
+	
+	#############################################################################
+	#Create mechanical step
+	mdb.models[modelName].StaticStep(
+	    initialInc=0.1, 
+	    name=stpName, 
+	    noStop=OFF, 
+	    previous='Initial', 
+	    timeIncrementationMethod=FIXED)
+	
+	#############################################################################
+	#Name for the BC
+	bcDispName = 'BC-Disp'
+	        
+	#Generate an array for the reference points to which PBCs will be applied
+	pointsPBCs = []
+	
+	#Append indicated by the flags
+	#Check if displacement along the x-direction is applied
+	if dispXflag:
+	    
+	    #Append reference point to apply displacement along the x-direction
+	    pointsPBCs.append(mdb.models[modelName].rootAssembly.sets['RP_X'].referencePoints[0])
+	
+	#Check if displacement along the y-direction is applied
+	if dispYflag:
+	    
+	    #Append reference point to apply displacement along the y-direction
+	    pointsPBCs.append(mdb.models[modelName].rootAssembly.sets['RP_Y'].referencePoints[0])
+	
+	#Check if displacement along the z-direction is applied
+	if dispZflag:
+	    
+	    #Append reference point to apply displacement along the z-direction
+	    pointsPBCs.append(mdb.models[modelName].rootAssembly.sets['RP_Z'].referencePoints[0])
+	
+	#Apply the displacement BC to 
+	mdb.models[modelName].DisplacementBC(
+	    amplitude=ampName, 
+	    createStepName=stpName, 
+	    distributionType=UNIFORM, 
+	    fieldName='', 
+	    fixed=OFF, 
+	    localCsys=None, 
+	    name=bcDispName, 
+	    region=Region(referencePoints=pointsPBCs))
+	        
+	#Set the displacement indicated by the flags
+	#Check if displacement along the x-direction is applied
+	if dispXflag:
+	    
+	    #Se the displacement BC along the x-direction
+	    mdb.models[modelName].boundaryConditions[bcDispName].setValues(u1=dispX)
+	
+	#Check if displacement along the y-direction is applied
+	if dispYflag:
+	    
+	    #Se the displacement BC along the y-direction
+	    mdb.models[modelName].boundaryConditions[bcDispName].setValues(u2=dispY)
+	
+	#Check if displacement along the z-direction is applied
+	if dispZflag:
+	    
+	    #Se the displacement BC along the z-direction
+	    mdb.models[modelName].boundaryConditions[bcDispName].setValues(u3=dispZ)
+	    
+	#############################################################################
+	#Set the output request
+	mdb.models[modelName].fieldOutputRequests['F-Output-1'].setValues(variables=('S', 'E', 'U'))
 
 
 #This function partitions the CNT into various cells
@@ -671,7 +941,7 @@ def create_set_for_cnt_points(cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords, cn
 			sets=(node_set_tmp, mdb.models['Model-1'].rootAssembly.sets[node_set_str]))
 		
 	#Print the length of the set
-	print('%s nodes=%d points=%d'%(node_set_str, len(mdb.models['Model-1'].rootAssembly.sets[node_set_str].nodes), cnt_end+1-cnt_start))
+	#print('%s nodes=%d points=%d'%(node_set_str, len(mdb.models['Model-1'].rootAssembly.sets[node_set_str].nodes), cnt_end+1-cnt_start))
 
 #This function creates all sets for the nodes that correspond to the centerline of that CNT
 def create_all_sets_for_cnt_points(N_CNTs, cnt_struct, cnt_coords):
@@ -704,9 +974,9 @@ def create_all_sets_for_cnt_points(N_CNTs, cnt_struct, cnt_coords):
 ######################################---GLOBAL VARIABLES---########################################
 
 #Files to read
-coord_file = 'C:\Users\grafenicas\Documents\CNTs_embedde_elements\Networks\cnt_coordinates.csv'
-struct_file = 'C:\Users\grafenicas\Documents\CNTs_embedde_elements\Networks\cnt_struct.csv'
-sample_file = 'C:\Users\grafenicas\Documents\CNTs_embedde_elements\Networks\sample_geom.csv'
+coord_file = 'cnt_coordinates.csv'
+struct_file = 'cnt_struct.csv'
+sample_file = 'sample_geom.csv'
 	
 #Define the string for the name of the matrix part
 str_matrix = 'Matrix'
@@ -729,8 +999,8 @@ matrixMaterial = 'Matrix_mat'
 matrixSection = 'Matrix_sec'
 #Define the mass density (kg/m3)
 matrixDensity = 905
-#Define the elastic modulus (GPa)
-matrixModulus = 1e6
+#Define the elastic modulus (MPa)
+matrixModulus = 2000
 #Define the Poisson ratio
 matrixPoissonR = 0.42
 #Define de coefficient of thermal expansion (e-5 1/C)
@@ -748,8 +1018,8 @@ cntMaterial = 'CNT_mat'
 cntSection = 'CNT_sec'
 #Define the mass density (kg/m3)
 cntDensity = 2200
-#Define the elastic modulus (GPa)
-cntModulus = 1e9
+#Define the elastic modulus (MPa)
+cntModulus = 1e6
 #Define the Poisson ratio
 cntPoissonR = 0.165
 #Define de coefficient of thermal expansion (e-5 1/C)
@@ -761,7 +1031,23 @@ cntSpecHeat = 7
 #Define the electrical conductivity (S/m)
 cntElecConductivity = 1e7
 #Maximum CNT radius
-cnt_rad_max = 0.005
+cnt_rad_max = 0.03
+
+#Some names
+modelName = 'Model-1'
+stpName = 'Step-1'
+hideSetName = 'HIDE-SET'
+
+#Displacement flags
+#These flags inidicate if displacement is applied in a direction
+# False = no displacement
+# True = displacement as indicated in the variable for displacement
+dispXflag = True
+dispYflag = False
+dispZflag= False
+dispX = 0.15
+dispY = 0.0
+dispZ = 0.0
 
 ######################################---GLOBAL VARIABLES---########################################
 ######################################----------END---------########################################
@@ -769,6 +1055,9 @@ cnt_rad_max = 0.005
 
 
 ######################################---MAIN PROGRAM---########################################
+
+#Time for whole Abaqus model
+start0 = time.time()
 
 #Read the csv file and turn it into a list
 #By using the flag QUOTE_NONNUMERIC, the reader assumes there are
@@ -797,8 +1086,23 @@ with open(sample_file) as f:
 #print(P0)
 #print(Lxyz)
 
+#Determine the size of the mesh for the polymer matrix
+#As a default mesh size, consider 10 elements per side
+#But elment size should be at least twide the radius
+matrixMeshSize = max(min(Lxyz)/10.0, 2.5*cnt_rad_max)
+#print('matrixMeshSize=',matrixMeshSize)
+halfMatrixMeshSize = 0.5*matrixMeshSize
+
+#Calculate furthest corner of RVE
+corner = (P0[0]+Lxyz[0], P0[1]+Lxyz[1], P0[2]+Lxyz[2])
+#print(corner)
+
+#Calculate lengths of extended RVE
+Lxyz_ext = (Lxyz[0] + 2.0*matrixMeshSize, Lxyz[1] + 2.0*matrixMeshSize, Lxyz[2] + 2.0*matrixMeshSize)
+
 #Generate the matrix part
-matrix_part(P0, Lxyz, str_matrix)
+matrix_part(modelName, P0, Lxyz, Lxyz_ext, str_matrix)
+#mdb.models[modelName].parts[str_matrix].DatumPointByCoordinate(corner)
     
 #Get the number of CNTs
 N_CNTs = int(cnt_struct[0][0])
@@ -806,28 +1110,40 @@ N_CNTs = int(cnt_struct[0][0])
 #A small fixed number used for debugging and testing
 #N_CNTs=2
 
+start = time.time()
+
 #Generate all CNT parts
 cnt_parts_all(N_CNTs, cnt_struct, cnt_coords)
+
+end = time.time()
+print("Time for part generation: ", end-start)
+start = end
 
 #Generate materials and assign sections
 materials_and_sections_matrix(str_matrix, matrixMaterial, matrixSection, matrixDensity, matrixModulus, matrixPoissonR)
 materials_and_sections_cnt(N_CNTs, cntMaterial, cntSection, cntDensity, cntModulus, cntPoissonR)
 
 #Generate assembly
-generate_assembly(N_CNTs, str_matrix)
+generate_assembly(modelName, N_CNTs, str_matrix)
 
 #Create sets that will be used when creating the embedded element constraints
-sets_for_embedded_elements(P0, Lxyz, N_CNTs, cnt_struct, cnt_coords, str_matrix, str_host)
+sets_for_embedded_elements(modelName, P0, Lxyz, N_CNTs, cnt_struct, cnt_coords, str_matrix, str_host)
 
 #Create embedded elements constraints
 embedded_elements_constraints(N_CNTs, str_matrix, str_host)
 
 #Create Step and add boundary conditions
-create_step_and_bcs(str_matrix, disp)
+create_step_and_bcs(modelName, str_matrix, stpName, P0, corner, Lxyz)
 
 #Generate meshes
-generate_matrix_mesh(str_matrix, Lxyz, cnt_rad_max)
+generate_matrix_mesh(str_matrix, Lxyz, matrixMeshSize)
 generate_cnt_meshes(N_CNTs, cnt_struct, cnt_coords)
+
+end = time.time()
+print("Time for instances and meshing: ", end-start)
+
+#Create set for elements to hide in visualization
+sets_for_elements_to_hide(modelName, str_matrix, hideSetName, P0, Lxyz, matrixMeshSize, halfMatrixMeshSize)
 
 #Create sets for the matrix (sample in the C++ code)
 #NOTE: Sets are generated on root assembly
