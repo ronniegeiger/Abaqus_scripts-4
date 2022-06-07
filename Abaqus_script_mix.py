@@ -1379,7 +1379,7 @@ def Create_Set_For_CNT_Points(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt
             sets=(node_set_tmp, mdb.models[modelName].rootAssembly.sets[node_set_str]))
 
     #Print the length of the set
-    print('%s nodes=%d points=%d'%(node_set_str, len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes), cnt_end+1-cnt_start))
+    #print('%s nodes=%d points=%d'%(node_set_str, len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes), cnt_end+1-cnt_start))
 
 #This function creates an element set that contains the elements in the extended region of the RVE
 #that need to be hidden in the visualization
