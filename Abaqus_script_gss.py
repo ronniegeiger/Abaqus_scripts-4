@@ -871,9 +871,7 @@ def Create_Sets_for_Matrix(model, P0, corner, matrixName):
 
 ######################################---OPENING CSV---#######################################
 
-# Complete path of the .csv: csv_filePath = os.path.join(os.path.dirname(os.path.abspath('__file__')), csv_gnpFile + '.csv')
-# Old reader: with open(csv_filePath) as f: data_gnp = list(csv.reader(f, quoting=csv.QUOTE_NONNUMERIC))
-start_time = time.time()
+start0 = time.time()
 
 #with open(os.path.join(os.path.dirname('__file__'), csv_gnpFile + '.csv')) as file_gnp:
 with open(csv_gnpFile) as file_gnp:
@@ -906,6 +904,8 @@ matrixMeshSize = Lxyz[1]/elementsPerSide
 eeMeshSize = matrixMeshSize*meshRatio
 
 ####################################---MODEL CREATION---######################################
+
+start = time.time()
 
 #Creating the matrix
 Create_Matrix(modelName, sheetSize, matrixName, P0, Lxyz)
@@ -945,6 +945,9 @@ Assign_Section(modelName, matrixMaterial, matrixName)
 #Create parts and instances for GSs
 Create_All_GSs(modelName, fillerMaterial, sheetSize, N_GSs, P0, corner)
 
+end = time.time()
+print("Time for part and instance generation: ", end-start)
+
 #------------------------------------END: CREATE ASSEMBLY------------------------------------#
 
 #-----------------------------START: PERIODIC BOUNDARY CONDITIONS----------------------------#
@@ -963,8 +966,7 @@ PBC_Equations(modelName)
 #Add temperature boundary conditions
 Add_Boundary_Conditions(modelName, tempApplied)
 
-print('Periodic boundary conditions have been applied.')
-#, 'COORD'
+#print('Periodic boundary conditions have been applied.')
 
 #Set the output request
 mdb.models[modelName].fieldOutputRequests['F-Output-1'].setValues(variables=('S', 'E', 'U'))
@@ -972,10 +974,12 @@ mdb.models[modelName].fieldOutputRequests['F-Output-1'].setValues(variables=('S'
 #------------------------------END: PERIODIC BOUNDARY CONDITIONS-----------------------------#
 
 #---------------------------------------START: MESHING---------------------------------------#
+start = time.time()
 
 Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, N_GSs, indexInside, indexOutside)
 
-print('The model has been completed in %s seconds.' % round(time.time() - start_time, 1))
+end = time.time()
+print("Time for meshing: ", end-start)
 
 #Check if files for re-meshing the model are needed
 if reMeshModel == 1:
@@ -1009,4 +1013,12 @@ if createJob == 1:
         '', type=ANALYSIS, userSubroutine='', waitHours=0, waitMinutes=0)
 
     if submitJob == 1:
+        start = time.time()
         mdb.jobs[jobName].submit(consistencyChecking=OFF)
+        mdb.jobs[jobName].waitForCompletion()
+        
+        end = time.time()
+        print("Time for Job execution: ",end-start)
+
+end = time.time()        
+print("Time for Abaqus model: ",end-start0)

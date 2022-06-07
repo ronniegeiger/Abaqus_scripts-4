@@ -1550,9 +1550,7 @@ def Create_Sets_for_Matrix(model, P0, corner, matrixName):
 
 ######################################---OPENING CSV---#######################################
 
-# Complete path of the .csv: csv_filePath = os.path.join(os.path.dirname(os.path.abspath('__file__')), csv_gnpFile + '.csv')
-# Old reader: with open(csv_filePath) as f: data_gnp = list(csv.reader(f, quoting=csv.QUOTE_NONNUMERIC))
-start_time = time.time()
+start0 = time.time()
 
 #with open(os.path.join(os.path.dirname('__file__'), csv_gnpFile + '.csv')) as file_gnp:
 with open(csv_gnpFile) as file_gnp:
@@ -1613,6 +1611,8 @@ Lxyz_ext = (Lxyz[0] + 2.0*matrixMeshSize, Lxyz[1] + 2.0*matrixMeshSize, Lxyz[2] 
 
 ####################################---MODEL CREATION---######################################
 
+start = time.time()
+
 #Creating the matrix part
 Create_Matrix(modelName, P0, Lxyz, Lxyz_ext, matrixName, matrixMeshSize, halfMatrixMeshSize)
 
@@ -1667,6 +1667,9 @@ Create_All_GSs(modelName, gsMaterial, sheetSize, N_GSs, P0, corner)
 #Create instances for CNTs
 Generate_CNT_Assembly(modelName, N_CNTs)
 
+end = time.time()
+print("Time for part and instance generation: ", end-start)
+
 #Create sets that will be used when creating the embedded element constraints for CNTs
 Sets_For_Embedded_Elements_CNTs(modelName, P0, Lxyz, N_CNTs, cnt_struct, cnt_coords, matrixName, strHost)
 
@@ -1692,7 +1695,7 @@ PBC_Equations(modelName)
 #Add temperature boundary conditions
 Add_Boundary_Conditions(modelName, tempApplied)
 
-print('Periodic boundary conditions have been applied.')
+#print('Periodic boundary conditions have been applied.')
 
 #Set the output request
 mdb.models[modelName].fieldOutputRequests['F-Output-1'].setValues(variables=('S', 'E', 'U'))
@@ -1701,9 +1704,14 @@ mdb.models[modelName].fieldOutputRequests['F-Output-1'].setValues(variables=('S'
 
 #---------------------------------------START: MESHING---------------------------------------#
 
+start = time.time()
+
 #Generate meshes
 #Embedded element constraints for GSs are added here because GS may be trimmed 
 Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, N_GSs, indexOutside, N_CNTs, cnt_struct, cnt_coords)
+
+end = time.time()
+print("Time for meshing: ", end-start)
 
 #Create sets for central CNT nodes
 #NOTE: Sets are generated on root assembly
@@ -1712,7 +1720,7 @@ Create_All_Sets_For_CNT_Points(modelName, N_CNTs, cnt_struct, cnt_coords)
 #Create set for elements to hide in visualization
 Sets_For_Elements_To_Hide(modelName, matrixName, P0, Lxyz, matrixMeshSize, halfMatrixMeshSize)
 
-print('The model has been completed in %s seconds.' % round(time.time() - start_time, 1))
+#print('The model has been completed in %s seconds.' % round(time.time() - start0, 1))
 
 #Check if files for re-meshing the model are needed
 if reMeshModel == 1:
@@ -1747,4 +1755,12 @@ if createJob == 1:
         '', type=ANALYSIS, userSubroutine='', waitHours=0, waitMinutes=0)
 
     if submitJob == 1:
+        start = time.time()
         mdb.jobs[jobName].submit(consistencyChecking=OFF)
+        mdb.jobs[jobName].waitForCompletion()
+        
+        end = time.time()
+        print("Time for Job execution: ",end-start)
+
+end = time.time()        
+print("Time for Abaqus model: ",end-start0)

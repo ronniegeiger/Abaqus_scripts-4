@@ -1119,14 +1119,17 @@ cnt_parts_all(N_CNTs, cnt_struct, cnt_coords)
 
 end = time.time()
 print("Time for part generation: ", end-start)
-start = end
 
 #Generate materials and assign sections
 materials_and_sections_matrix(matrixName, matrixMaterial, matrixSection, matrixDensity, matrixModulus, matrixPoissonR)
 materials_and_sections_cnt(N_CNTs, cntMaterial, cntSection, cntDensity, cntModulus, cntPoissonR)
 
+start = time.time()
 #Generate assembly
 generate_assembly(modelName, N_CNTs, matrixName)
+
+end = time.time()
+print("Time for instance generation: ", end-start)
 
 #Create sets that will be used when creating the embedded element constraints
 sets_for_embedded_elements(modelName, P0, Lxyz, N_CNTs, cnt_struct, cnt_coords, matrixName, str_host)
@@ -1137,12 +1140,13 @@ embedded_elements_constraints(N_CNTs, matrixName, str_host)
 #Create Step and add boundary conditions
 create_step_and_bcs(modelName, matrixName, stpName, P0, corner, Lxyz)
 
+start = time.time()
 #Generate meshes
 generate_matrix_mesh(matrixName, Lxyz, matrixMeshSize)
 generate_cnt_meshes(N_CNTs, cnt_struct, cnt_coords)
 
 end = time.time()
-print("Time for instances and meshing: ", end-start)
+print("Time for meshing: ", end-start)
 
 #Create set for elements to hide in visualization
 sets_for_elements_to_hide(modelName, matrixName, P0, Lxyz, matrixMeshSize, halfMatrixMeshSize)
@@ -1155,11 +1159,22 @@ create_sets_for_matrix(P0, Lxyz, matrixName)
 #NOTE: Sets are generated on root assembly
 create_all_sets_for_cnt_points(N_CNTs, cnt_struct, cnt_coords)
 
+#Name of the job to be used based on its parameters
+#CNT-'Number of CNTs in the RVE'
+#EPS-'Number of elements per side'
+jobName = 'CNT-'+str(N_CNTs)
+
 #Create and submit job using Abaqus default values
 mdb.Job(atTime=None, contactPrint=OFF, description='', echoPrint=OFF, 
 	explicitPrecision=SINGLE, getMemoryFromAnalysis=True, historyPrint=OFF, 
 	memory=90, memoryUnits=PERCENTAGE, model=modelName, modelPrint=OFF, 
-	multiprocessingMode=DEFAULT, name='Job-1', nodalOutputPrecision=SINGLE, 
+	multiprocessingMode=DEFAULT, name=jobName, nodalOutputPrecision=SINGLE, 
 	numCpus=1, numGPUs=0, queue=None, resultsFormat=ODB, scratch='', type=
 	ANALYSIS, userSubroutine='', waitHours=0, waitMinutes=0)
-mdb.jobs['Job-1'].submit(consistencyChecking=OFF)
+mdb.jobs[jobName].submit(consistencyChecking=OFF)
+mdb.jobs[jobName].waitForCompletion()
+
+#Calcualte job executionand simulation time
+end = time.time()
+print("Time for Job execution: ",end-start)
+print("Time for Abaqus model: ",end-start0)
