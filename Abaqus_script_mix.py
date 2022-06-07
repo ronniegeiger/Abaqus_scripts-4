@@ -1583,12 +1583,12 @@ with open(struct_file) as f:
 corner = (P0[0]+Lxyz[0], P0[1]+Lxyz[1], P0[2]+Lxyz[2])
 
 #Get the number of GNPs
-#N_GSs = len(data_gnp)
-N_GSs = 2
+N_GSs = len(data_gnp)
+#N_GSs = 2
 
 #Get the number of CNTs
-#N_CNTs = int(cnt_struct[0][0])
-N_CNTs = 2
+N_CNTs = int(cnt_struct[0][0])
+#N_CNTs = 2
 
 print('There are ' + str(N_GSs) + ' GSs inside the RVE.')
 print('There are ' + str(N_CNTs) + ' CNTsinside the RVE.')
