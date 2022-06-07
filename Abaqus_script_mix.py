@@ -1591,7 +1591,7 @@ N_CNTs = int(cnt_struct[0][0])
 #N_CNTs = 2
 
 print('There are ' + str(N_GSs) + ' GSs inside the RVE.')
-print('There are ' + str(N_CNTs) + ' CNTsinside the RVE.')
+print('There are ' + str(N_CNTs) + ' CNT sinside the RVE.')
 
 #Arrays to store GSs laying inside or partially outside the RVE
 indexOutside = []
