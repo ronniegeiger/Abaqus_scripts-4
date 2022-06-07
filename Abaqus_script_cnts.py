@@ -185,7 +185,7 @@ def rotation_matrix(P1, P2):
 	return R
 	
 #This function generates all edges of a CNT
-def generate_edges(cnt_start, cnt_end, cnt_coords, str_part):
+def generate_edges(modelName, cnt_start, cnt_end, cnt_coords, str_part):
 	
 	#Create edges, iterate over all points of the CNT
 	for i in range(cnt_start, cnt_end):
@@ -197,17 +197,17 @@ def generate_edges(cnt_start, cnt_end, cnt_coords, str_part):
 		P2 = cnt_coords[i+1]
 		
 		#Generate the segment
-		mdb.models['Model-1'].parts[str_part].WirePolyLine(mergeType=IMPRINT, meshable= ON, points=((P1, P2), ))
+		mdb.models[modelName].parts[str_part].WirePolyLine(mergeType=IMPRINT, meshable= ON, points=((P1, P2), ))
 		
 		#Generate the name of the wire
 		#str_wire = 'Wire-%d-Set-1' %(i-cnt_start+1)
 		
 		#Name the wire
-		#mdb.models['Model-1'].parts[str_part].Set(edges=
-    	#	mdb.models['Model-1'].parts[str_part].edges.getSequenceFromMask(('[#1 ]', ), ), name=str_wire)
+		#mdb.models[modelName].parts[str_part].Set(edges=
+    	#	mdb.models[modelName].parts[str_part].edges.getSequenceFromMask(('[#1 ]', ), ), name=str_wire)
 
 #This function generates the sweeped part
-def generate_sweep(P1, P2, cnt_rad, cnt_start, cnt_end, str_part):
+def generate_sweep(modelName, P1, P2, cnt_rad, cnt_start, cnt_end, str_part):
 	#The sketching plane is perpendicular to the last segment
 	#The last segment has the points P1 and P2, so the z-axis of the sketch plane is 
 	#aligned to this last segment and goes in the direction from P1 to P2
@@ -215,50 +215,50 @@ def generate_sweep(P1, P2, cnt_rad, cnt_start, cnt_end, str_part):
 	R = rotation_matrix(P1, P2)
 	
 	#Create the sketching plane using the rotation matrix and the last point in the CNT
-	mdb.models['Model-1'].ConstrainedSketch(gridSpacing=0.001, name='__profile__', sheetSize=0.076, transform=(
+	mdb.models[modelName].ConstrainedSketch(gridSpacing=0.001, name='__profile__', sheetSize=0.076, transform=(
 	    R[0][0], R[0][1], R[0][2],
 	    R[1][0], R[1][1], R[1][2], 
 	    R[2][0], 0.0, R[2][2], 
 	    P2[0], P2[1], P2[2]))
-	mdb.models['Model-1'].sketches['__profile__'].sketchOptions.setValues( decimalPlaces=5)
-	mdb.models['Model-1'].sketches['__profile__'].ConstructionLine(point1=(-0.038, 0.0), point2=(0.038, 0.0))
-	mdb.models['Model-1'].sketches['__profile__'].ConstructionLine(point1=(0.0,-0.038), point2=(0.0, 0.038))
-	mdb.models['Model-1'].parts[str_part].projectReferencesOntoSketch(
-		filter=COPLANAR_EDGES, sketch=mdb.models['Model-1'].sketches['__profile__'])
+	mdb.models[modelName].sketches['__profile__'].sketchOptions.setValues( decimalPlaces=5)
+	mdb.models[modelName].sketches['__profile__'].ConstructionLine(point1=(-0.038, 0.0), point2=(0.038, 0.0))
+	mdb.models[modelName].sketches['__profile__'].ConstructionLine(point1=(0.0,-0.038), point2=(0.0, 0.038))
+	mdb.models[modelName].parts[str_part].projectReferencesOntoSketch(
+		filter=COPLANAR_EDGES, sketch=mdb.models[modelName].sketches['__profile__'])
 	
 	#Calculate the radius multiplied by cos(PI/4)
 	new_rad = cnt_rad*cos45
 	
     #Construct a regular octagon
     #Vertex 1-2
-	mdb.models['Model-1'].sketches['__profile__'].Line(point1=(0.0, cnt_rad), point2=(new_rad, new_rad))
+	mdb.models[modelName].sketches['__profile__'].Line(point1=(0.0, cnt_rad), point2=(new_rad, new_rad))
 	#Vertex 2-3
-	mdb.models['Model-1'].sketches['__profile__'].Line(point1=(new_rad, new_rad), point2=(cnt_rad, 0.0))
+	mdb.models[modelName].sketches['__profile__'].Line(point1=(new_rad, new_rad), point2=(cnt_rad, 0.0))
 	#Vertex 3-4
-	mdb.models['Model-1'].sketches['__profile__'].Line(point1=(cnt_rad, 0.0), point2=(new_rad, -new_rad))
+	mdb.models[modelName].sketches['__profile__'].Line(point1=(cnt_rad, 0.0), point2=(new_rad, -new_rad))
 	#Vertex 4-5
-	mdb.models['Model-1'].sketches['__profile__'].Line(point1=(new_rad,-new_rad), point2=(0.0, -cnt_rad))
+	mdb.models[modelName].sketches['__profile__'].Line(point1=(new_rad,-new_rad), point2=(0.0, -cnt_rad))
 	#Vertex 5-6
-	mdb.models['Model-1'].sketches['__profile__'].Line(point1=(0.0, -cnt_rad), point2=(-new_rad, -new_rad))
+	mdb.models[modelName].sketches['__profile__'].Line(point1=(0.0, -cnt_rad), point2=(-new_rad, -new_rad))
 	#Vertex 6-7
-	mdb.models['Model-1'].sketches['__profile__'].Line(point1=(-new_rad, -new_rad), point2=(-cnt_rad, 0.0))
+	mdb.models[modelName].sketches['__profile__'].Line(point1=(-new_rad, -new_rad), point2=(-cnt_rad, 0.0))
 	#Vertex 7-8
-	mdb.models['Model-1'].sketches['__profile__'].Line(point1=(-cnt_rad, 0.0), point2=(-new_rad, new_rad))
+	mdb.models[modelName].sketches['__profile__'].Line(point1=(-cnt_rad, 0.0), point2=(-new_rad, new_rad))
 	#Vertex 8-1
-	mdb.models['Model-1'].sketches['__profile__'].Line(point1=(-new_rad, new_rad), point2=(0.0, cnt_rad))	
+	mdb.models[modelName].sketches['__profile__'].Line(point1=(-new_rad, new_rad), point2=(0.0, cnt_rad))	
 	
 	#Select the last edge, which has number equal to (number edges-1)
 	#The number of edges is equal to (number of points-1)
 	#The number of points is (cnt_end-cnt_start+1)
 	#Then, the las edge has number ((cnt_end-cnt_start+1)-1-1)=(cnt_end-cnt_start-1)
-	mdb.models['Model-1'].parts[str_part].SolidSweep(
-		path=mdb.models['Model-1'].parts[str_part].edges, 
-		profile=mdb.models['Model-1'].sketches['__profile__'], 
+	mdb.models[modelName].parts[str_part].SolidSweep(
+		path=mdb.models[modelName].parts[str_part].edges, 
+		profile=mdb.models[modelName].sketches['__profile__'], 
 		sketchOrientation=RIGHT, 
-		sketchUpEdge=mdb.models['Model-1'].parts[str_part].edges[cnt_end-cnt_start-1])
+		sketchUpEdge=mdb.models[modelName].parts[str_part].edges[cnt_end-cnt_start-1])
 	    
 	#Delete sketch
-	del mdb.models['Model-1'].sketches['__profile__']
+	del mdb.models[modelName].sketches['__profile__']
 	
 	
 #This function retunrs a unit vector going from P1 towards P2
@@ -299,30 +299,30 @@ def dot(v1, v2):
 	return (v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2])
     		    
 #This function creates a CNT in Part module
-def cnt_part(cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords):
+def cnt_part(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords):
 	
 	#Get the string for the CNT
 	str_part = cnt_string_part(cnt_i)
 	
 	#Create a point to be able to generate the edges that will make the CNT
-	mdb.models['Model-1'].Part(dimensionality=THREE_D, name=str_part, type=DEFORMABLE_BODY)
-	mdb.models['Model-1'].parts[str_part].ReferencePoint(point=(0.0, 0.0, 0.0))
+	mdb.models[modelName].Part(dimensionality=THREE_D, name=str_part, type=DEFORMABLE_BODY)
+	mdb.models[modelName].parts[str_part].ReferencePoint(point=(0.0, 0.0, 0.0))
 	
 	#print("cnt_start=",cnt_start," cnt_end=",cnt_end)
 	
 	#Create edges, iterate over all points of the CNT
-	generate_edges(cnt_start, cnt_end, cnt_coords, str_part)
+	generate_edges(modelName, cnt_start, cnt_end, cnt_coords, str_part)
 	
 	#Sweep an octagon along the edges
-	generate_sweep(cnt_coords[cnt_end-1], cnt_coords[cnt_end], cnt_rad, cnt_start, cnt_end, str_part)
+	generate_sweep(modelName, cnt_coords[cnt_end-1], cnt_coords[cnt_end], cnt_rad, cnt_start, cnt_end, str_part)
 	
 	#Delete the initial point as it is not used anymore
-	del mdb.models['Model-1'].parts[str_part].features['RP']
+	del mdb.models[modelName].parts[str_part].features['RP']
 		
 	#datum_points(cnt_rad, cnt_start, cnt_end, cnt_coords, str_part)
 	
 #This function generates all CNT parts
-def cnt_parts_all(N_CNTs, cnt_struct, cnt_coords):
+def cnt_parts_all(modelName, N_CNTs, cnt_struct, cnt_coords):
 	
 	#Number of accumulated points
 	acc_pts = 0
@@ -337,7 +337,7 @@ def cnt_parts_all(N_CNTs, cnt_struct, cnt_coords):
 		#Create all CNTs, one part per CNT
 		#The first point is given by the accumulated number of points
 		#The last point is the accumulated number of points plus the number of points of CNTi minus 1
-		cnt_part(cnt_i, rad, acc_pts, acc_pts+N_p-1, cnt_coords)
+		cnt_part(modelName, cnt_i, rad, acc_pts, acc_pts+N_p-1, cnt_coords)
 		
 		#Increase the number of accumulated points
 		acc_pts += N_p
@@ -375,30 +375,30 @@ def generate_assembly(modelName, N_CNTs, str_matrix):
 			part=mdb.models[modelName].parts[str_cnt])		
 
 #This function creates the matrix material and assigns it to a section
-def materials_and_sections_matrix(str_matrix, matrixMaterial, matrixSection, matrixDensity, matrixModulus, matrixPoissonR):
+def materials_and_sections_matrix(modelName, str_matrix, matrixMaterial, matrixSection, matrixDensity, matrixModulus, matrixPoissonR):
 	
 	#Create matrix material
-	mdb.models['Model-1'].Material(description='Polymer', name=matrixMaterial)
-	mdb.models['Model-1'].materials[matrixMaterial].Elastic(table=((matrixModulus, matrixPoissonR), ))
+	mdb.models[modelName].Material(description='Polymer', name=matrixMaterial)
+	mdb.models[modelName].materials[matrixMaterial].Elastic(table=((matrixModulus, matrixPoissonR), ))
 	
 	#Assign material to section
-	mdb.models['Model-1'].HomogeneousSolidSection(material=matrixMaterial, name=matrixSection, thickness=None)
+	mdb.models[modelName].HomogeneousSolidSection(material=matrixMaterial, name=matrixSection, thickness=None)
 	
 	#Assign section to matrix
-	#print('cells=',len(mdb.models['Model-1'].parts[str_matrix].cells))
-	mdb.models['Model-1'].parts[str_matrix].SectionAssignment(offset=0.0, offsetField='', offsetType=MIDDLE_SURFACE, 
-		region=Region(cells=mdb.models['Model-1'].parts[str_matrix].cells), 
+	#print('cells=',len(mdb.models[modelName].parts[str_matrix].cells))
+	mdb.models[modelName].parts[str_matrix].SectionAssignment(offset=0.0, offsetField='', offsetType=MIDDLE_SURFACE, 
+		region=Region(cells=mdb.models[modelName].parts[str_matrix].cells), 
 		sectionName=matrixSection, thicknessAssignment=FROM_SECTION)
 
 #This function creates the CNT material and assigns it to a section
-def materials_and_sections_cnt(N_CNTs, cntMaterial, cntSection, cntDensity, cntModulus, cntPoissonR):
+def materials_and_sections_cnt(modelName, N_CNTs, cntMaterial, cntSection, cntDensity, cntModulus, cntPoissonR):
 	
 	#Create CNT material
-	mdb.models['Model-1'].Material(name=cntMaterial)
-	mdb.models['Model-1'].materials[cntMaterial].Elastic(table=((cntModulus, cntPoissonR), ))
+	mdb.models[modelName].Material(name=cntMaterial)
+	mdb.models[modelName].materials[cntMaterial].Elastic(table=((cntModulus, cntPoissonR), ))
 	
 	#Assign material to section
-	mdb.models['Model-1'].HomogeneousSolidSection(material=cntMaterial, name=cntSection, thickness=None)
+	mdb.models[modelName].HomogeneousSolidSection(material=cntMaterial, name=cntSection, thickness=None)
 	
 	#Iterate over the CNTs
 	for cnt_i in range(1, N_CNTs+1):
@@ -407,8 +407,8 @@ def materials_and_sections_cnt(N_CNTs, cntMaterial, cntSection, cntDensity, cntM
 		cnt_str = cnt_string_part(cnt_i)
 		
 		#Assign the CNT section to cnt_i
-		mdb.models['Model-1'].parts[cnt_str].SectionAssignment(offset=0.0, offsetField='', offsetType=MIDDLE_SURFACE, 
-			region=Region(cells=mdb.models['Model-1'].parts[cnt_str].cells.getSequenceFromMask(mask=('[#1 ]', ), )),
+		mdb.models[modelName].parts[cnt_str].SectionAssignment(offset=0.0, offsetField='', offsetType=MIDDLE_SURFACE, 
+			region=Region(cells=mdb.models[modelName].parts[cnt_str].cells.getSequenceFromMask(mask=('[#1 ]', ), )),
 			sectionName=cntSection, thicknessAssignment=FROM_SECTION)
 
 #This function creates an element set that contains the elements in the extended region of the RVE
@@ -500,7 +500,7 @@ def sets_for_embedded_elements(modelName, P0, Lxyz, N_CNTs, cnt_struct, cnt_coor
 		acc_pts += N_p
 
 #This functions creates the constraints for the embedded elements
-def embedded_elements_constraints(N_CNTs, str_matrix, str_host):
+def embedded_elements_constraints(modelName, N_CNTs, str_matrix, str_host):
 	
 	#Iterate over the CNTs
 	for cnt_i in range(1, N_CNTs+1):
@@ -515,21 +515,14 @@ def embedded_elements_constraints(N_CNTs, str_matrix, str_host):
 		set_str = cnt_str + '_EESet'
 	
 		#For cnt_i create an embedded element constraint
-		#mdb.models['Model-1'].EmbeddedRegion(
-		#	absoluteTolerance=0.0, fractionalTolerance=0.05, toleranceMethod=BOTH, weightFactorTolerance=1e-06,
-		#	embeddedRegion=
-		#		Region(cells=mdb.models['Model-1'].rootAssembly.instances[cnt_str + '-1'].cells.getSequenceFromMask(mask=('[#1 ]', ), )), 
-		#	hostRegion=
-		#		Region(cells=mdb.models['Model-1'].rootAssembly.instances[str_matrix + '-1'].cells.getSequenceFromMask(mask=('[#1 ]', ), )),
-		#	name='EE-Constraint-%d' %(cnt_i))
-		mdb.models['Model-1'].EmbeddedRegion(
+		mdb.models[modelName].EmbeddedRegion(
 			absoluteTolerance=0.0, fractionalTolerance=0.05, toleranceMethod=BOTH, weightFactorTolerance=1e-06,
-			embeddedRegion=mdb.models['Model-1'].rootAssembly.sets[set_str],
-			hostRegion=mdb.models['Model-1'].rootAssembly.sets[str_host],
+			embeddedRegion=mdb.models[modelName].rootAssembly.sets[set_str],
+			hostRegion=mdb.models[modelName].rootAssembly.sets[str_host],
 			name='EE-Constraint-%d' %(cnt_i))
 	
 #This function generates the mesh for the matrix
-def generate_matrix_mesh(str_matrix, Lxyz, matrixMeshSize):
+def generate_matrix_mesh(modelName, str_matrix, Lxyz, matrixMeshSize):
 	
  # #Determine the size of the mesh for the polymer matrix
  # #First determine the size of the elements considering 10 elements per side
@@ -546,11 +539,11 @@ def generate_matrix_mesh(str_matrix, Lxyz, matrixMeshSize):
 
 	#Mesh the matrix
 	#deviationFactor and minSizeFactor have the default values from Abaqus
-	mdb.models['Model-1'].parts[str_matrix].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=matrixMeshSize)
-	mdb.models['Model-1'].parts[str_matrix].generateMesh()
+	mdb.models[modelName].parts[str_matrix].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=matrixMeshSize)
+	mdb.models[modelName].parts[str_matrix].generateMesh()
 
 #This function generates the mesh for the CNTs
-def generate_cnt_meshes(N_CNTs, cnt_struct, cnt_coords):
+def generate_cnt_meshes(modelName, N_CNTs, cnt_struct, cnt_coords):
 	
 	#Number of accumulated points
 	acc_pts = 0
@@ -567,11 +560,11 @@ def generate_cnt_meshes(N_CNTs, cnt_struct, cnt_coords):
 		
 		#Mesh cnt_i, use its radius as the element size
 		#deviationFactor and minSizeFactor have the default values from Abaqus
-		mdb.models['Model-1'].parts[cnt_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=cnt_struct[cnt_i][1])
-		mdb.models['Model-1'].parts[cnt_str].generateMesh()
+		mdb.models[modelName].parts[cnt_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=cnt_struct[cnt_i][1])
+		mdb.models[modelName].parts[cnt_str].generateMesh()
 		
 		#Get the number of nodes generated
-		num_nodes = mdb.models['Model-1'].parts[cnt_str].getMeshStats((mdb.models['Model-1'].parts[cnt_str].cells,)).numNodes
+		num_nodes = mdb.models[modelName].parts[cnt_str].getMeshStats((mdb.models[modelName].parts[cnt_str].cells,)).numNodes
 		#print(cnt_str,' nodes=', num_nodes)
 		
 		#Check the number of nodes in the mesh
@@ -579,28 +572,26 @@ def generate_cnt_meshes(N_CNTs, cnt_struct, cnt_coords):
 			
 			#The CNT was not meshed
 			#Cut the CNT cell and mesh again
-			partition_cnt_cell(cnt_rad, acc_pts, acc_pts+N_p-1, cnt_coords, cnt_str)
+			partition_cnt_cell(modelName, cnt_rad, acc_pts, acc_pts+N_p-1, cnt_coords, cnt_str)
 			
 			#Try to mesh again
-			mdb.models['Model-1'].parts[cnt_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=cnt_struct[cnt_i][1])
-			mdb.models['Model-1'].parts[cnt_str].generateMesh()
+			mdb.models[modelName].parts[cnt_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=cnt_struct[cnt_i][1])
+			mdb.models[modelName].parts[cnt_str].generateMesh()
 			
 		#Increase the number of accumulated points
 		acc_pts += N_p
 		
 	#This seems to be required by Abaqus
-	mdb.models['Model-1'].rootAssembly.regenerate()
+	mdb.models[modelName].rootAssembly.regenerate()
 	
 #This function cuts a CNT cell when it could not be meshed
-def partition_cnt_cell(cnt_rad, cnt_start, cnt_end, cnt_coords, str_part):
+def partition_cnt_cell(modelName, cnt_rad, cnt_start, cnt_end, cnt_coords, str_part):
 	
 	#Half of the cylinder height
 	hc = cnt_rad*0.1
 	
 	#Iterate over the CNT points, starting on the secont point and finishing on the previous to last point
-	for i in range(cnt_start+1, cnt_end): 
-		
-		#print('i=',i-cnt_start,' cells=', len(mdb.models['Model-1'].parts[str_part].cells))
+	for i in range(cnt_start+1, cnt_end):
 		
 		#Get the points of the CNT segments that share point i
 		#End point of first CNT segment
@@ -655,7 +646,7 @@ def partition_cnt_cell(cnt_rad, cnt_start, cnt_end, cnt_coords, str_part):
 			#print('rad_cyl=',rad_cyl)
 			
 			#Select the edges enclosed by the cylinder with centerpoints C1 and C2 and radius rad_cyl
-			octagon = mdb.models['Model-1'].parts[str_part].edges.getByBoundingCylinder(center1=C1, center2=C2, radius=rad_cyl)
+			octagon = mdb.models[modelName].parts[str_part].edges.getByBoundingCylinder(center1=C1, center2=C2, radius=rad_cyl)
 			#print('i=',i-cnt_start-1," octagon.len=",len(octagon))
 			#print(octagon)
 			#print(octagon[0])
@@ -667,11 +658,11 @@ def partition_cnt_cell(cnt_rad, cnt_start, cnt_end, cnt_coords, str_part):
 			#Datum points for testing
 			#if i == cnt_start+1:
 			#	for j in range(len(octagon)):
-			#		mdb.models['Model-1'].parts[str_part].DatumPointByCoordinate(coords=octagon[j].pointOn[0])
+			#		mdb.models[modelName].parts[str_part].DatumPointByCoordinate(coords=octagon[j].pointOn[0])
 			
 			#Use the octagon edges in the tuple to partition the cell
-			mdb.models['Model-1'].parts[str_part].PartitionCellByPatchNEdges(
-				cell=mdb.models['Model-1'].parts[str_part].cells.findAt(P3, ),
+			mdb.models[modelName].parts[str_part].PartitionCellByPatchNEdges(
+				cell=mdb.models[modelName].parts[str_part].cells.findAt(P3, ),
 				edges=octagon_edges
 			)
 
@@ -831,8 +822,6 @@ def datum_points(cnt_rad, cnt_start, cnt_end, cnt_coords, str_part):
 	#Iterate over the CNT points, starting on the secont point and finishing on the previous to last point
 	for i in range(cnt_start+1, cnt_end): 
 		
-		#print('i=',i-cnt_start,' cells=', len(mdb.models['Model-1'].parts[str_part].cells))
-		
 		#Get the points of the CNT segments that share point i
 		#End point of first CNT segment
 		P1 = cnt_coords[i-1]
@@ -875,43 +864,38 @@ def datum_points(cnt_rad, cnt_start, cnt_end, cnt_coords, str_part):
 		
 #This function creates two sets for two of the vertices of the matrix (sample), where each set has only one node
 #These nodes are on the diagonal of the cuboid that defines the matrix (sample) 
-def create_sets_for_matrix(P0, Lxyz, str_matrix):
+def create_sets_for_matrix(modelName, P0, Lxyz, str_matrix):
 	
 	#Create the set of the lower left corner
 	#NOTE: The parenthesis, comma and the space in the nodes argument is beacuse a tuple is needed but
 	#the operation getClosest returns an object. The parenthesis, comma and space make it a tuple
-	mdb.models['Model-1'].rootAssembly.Set(
-		nodes=mdb.models['Model-1'].rootAssembly.instances[str_matrix+"-1"].nodes.getByBoundingSphere(center=P0, radius=0.001),
+	mdb.models[modelName].rootAssembly.Set(
+		nodes=mdb.models[modelName].rootAssembly.instances[str_matrix+"-1"].nodes.getByBoundingSphere(center=P0, radius=0.001),
 		name='Matrix0')
-	#This way does not allow to get displacements for some reason
-	#I guess the mesh is on instance and not in part
-	#mdb.models['Model-1'].parts[str_matrix].Set(
-	#	nodes=(mdb.models['Model-1'].parts[str_matrix].nodes.getByBoundingSphere(center=P0, radius=0.001), ),
-	#	name='Matrix0')
 	
 	#print('P0=',P0,' str_matrix=',str_matrix)
-	#nd = mdb.models['Model-1'].rootAssembly.instances[str_matrix+"-1"].nodes.getByBoundingSphere(center=P0, radius=0.001)
+	#nd = mdb.models[modelName].rootAssembly.instances[str_matrix+"-1"].nodes.getByBoundingSphere(center=P0, radius=0.001)
 	#print('nd0=',nd[0].coordinates)
 	
 	#Create opposite corner
 	corner = (P0[0]+Lxyz[0], P0[1]+Lxyz[1], P0[2]+Lxyz[2])
 	
 	#Create the set of the opposite corner
-	mdb.models['Model-1'].rootAssembly.Set(
-		nodes=mdb.models['Model-1'].rootAssembly.instances[str_matrix+"-1"].nodes.getByBoundingSphere(center=corner, radius=0.001),
+	mdb.models[modelName].rootAssembly.Set(
+		nodes=mdb.models[modelName].rootAssembly.instances[str_matrix+"-1"].nodes.getByBoundingSphere(center=corner, radius=0.001),
 		name='Matrix1')
-	#nd = mdb.models['Model-1'].rootAssembly.instances[str_matrix+"-1"].nodes.getByBoundingSphere(center=corner, radius=0.001)
+	#nd = mdb.models[modelName].rootAssembly.instances[str_matrix+"-1"].nodes.getByBoundingSphere(center=corner, radius=0.001)
 	#print('nd1=',nd[0].coordinates)
 		
 	#Perform union of two sets
-	#mdb.models['Model-1'].rootAssembly.SetByBoolean(
+	#mdb.models[modelName].rootAssembly.SetByBoolean(
 	#	name='Matrix2', 
 	#	operation=UNION, 
-	#	sets=(mdb.models['Model-1'].rootAssembly.sets['Matrix0'], mdb.models['Model-1'].rootAssembly.sets['Matrix1'])
+	#	sets=(mdb.models[modelName].rootAssembly.sets['Matrix0'], mdb.models[modelName].rootAssembly.sets['Matrix1'])
 	#	)
 
 #This function creates a set for the nodes that correspond to the centerline of that CNT
-def create_set_for_cnt_points(cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords, cnt_str):
+def create_set_for_cnt_points(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords, cnt_str):
 	
 	#Calculate radius for serching nodes
 	new_rad = cnt_rad/4;
@@ -920,34 +904,34 @@ def create_set_for_cnt_points(cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords, cn
 	node_set_str = cnt_string_node_set(cnt_i)
 	
 	#Create a set with the name of the node set and containing the first point in the CNT
-	mdb.models['Model-1'].rootAssembly.Set(
-		nodes=mdb.models['Model-1'].rootAssembly.instances[cnt_str].nodes.getByBoundingSphere(center=cnt_coords[cnt_start], radius=new_rad),
+	mdb.models[modelName].rootAssembly.Set(
+		nodes=mdb.models[modelName].rootAssembly.instances[cnt_str].nodes.getByBoundingSphere(center=cnt_coords[cnt_start], radius=new_rad),
 		name=node_set_str)
 	
 	#Iterate over all points of the CNT, starting on the second point since the first point is already in the set
 	for i in range(cnt_start+1, cnt_end+1):
 		
 		#Create a temporary set with node i
-		node_set_tmp = mdb.models['Model-1'].rootAssembly.Set(
-			nodes=mdb.models['Model-1'].rootAssembly.instances[cnt_str].nodes.getByBoundingSphere(center=cnt_coords[i], radius=new_rad),
+		node_set_tmp = mdb.models[modelName].rootAssembly.Set(
+			nodes=mdb.models[modelName].rootAssembly.instances[cnt_str].nodes.getByBoundingSphere(center=cnt_coords[i], radius=new_rad),
 			name='tmp_set')
 		
 		#Merge two sets
-		#mdb.models['Model-1'].rootAssembly.SetByMerge(
+		#mdb.models[modelName].rootAssembly.SetByMerge(
 		#	name=node_set_str, 
-		#	sets=(node_set_tmp, mdb.models['Model-1'].rootAssembly.sets[node_set_str]))
+		#	sets=(node_set_tmp, mdb.models[modelName].rootAssembly.sets[node_set_str]))
 		
 		#Perform union of two sets
-		mdb.models['Model-1'].rootAssembly.SetByBoolean(
+		mdb.models[modelName].rootAssembly.SetByBoolean(
 			name=node_set_str, 
 			operation=UNION, 
-			sets=(node_set_tmp, mdb.models['Model-1'].rootAssembly.sets[node_set_str]))
+			sets=(node_set_tmp, mdb.models[modelName].rootAssembly.sets[node_set_str]))
 		
 	#Print the length of the set
-	#print('%s nodes=%d points=%d'%(node_set_str, len(mdb.models['Model-1'].rootAssembly.sets[node_set_str].nodes), cnt_end+1-cnt_start))
+	#print('%s nodes=%d points=%d'%(node_set_str, len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes), cnt_end+1-cnt_start))
 
 #This function creates all sets for the nodes that correspond to the centerline of that CNT
-def create_all_sets_for_cnt_points(N_CNTs, cnt_struct, cnt_coords):
+def create_all_sets_for_cnt_points(modelName, N_CNTs, cnt_struct, cnt_coords):
 	
 	#Initializae the number of accumulated points to zero
 	acc_pts = 0
@@ -963,7 +947,7 @@ def create_all_sets_for_cnt_points(N_CNTs, cnt_struct, cnt_coords):
 		cnt_str = cnt_string_instance(cnt_i)
 		
 		#Create a set for the nodes at the centerline of cnt_i
-		create_set_for_cnt_points(cnt_i, cnt_rad, acc_pts, acc_pts+N_p-1, cnt_coords, cnt_str)
+		create_set_for_cnt_points(modelName, cnt_i, cnt_rad, acc_pts, acc_pts+N_p-1, cnt_coords, cnt_str)
 		
 		#Increase the number of accumulated points
 		acc_pts += N_p
@@ -1115,14 +1099,14 @@ print('There are ' + str(N_CNTs) + ' CNTs inside the RVE.')
 start = time.time()
 
 #Generate all CNT parts
-cnt_parts_all(N_CNTs, cnt_struct, cnt_coords)
+cnt_parts_all(modelName, N_CNTs, cnt_struct, cnt_coords)
 
 end = time.time()
 print("Time for part generation: ", end-start)
 
 #Generate materials and assign sections
-materials_and_sections_matrix(matrixName, matrixMaterial, matrixSection, matrixDensity, matrixModulus, matrixPoissonR)
-materials_and_sections_cnt(N_CNTs, cntMaterial, cntSection, cntDensity, cntModulus, cntPoissonR)
+materials_and_sections_matrix(modelName, matrixName, matrixMaterial, matrixSection, matrixDensity, matrixModulus, matrixPoissonR)
+materials_and_sections_cnt(modelName, N_CNTs, cntMaterial, cntSection, cntDensity, cntModulus, cntPoissonR)
 
 start = time.time()
 #Generate assembly
@@ -1135,15 +1119,15 @@ print("Time for instance generation: ", end-start)
 sets_for_embedded_elements(modelName, P0, Lxyz, N_CNTs, cnt_struct, cnt_coords, matrixName, str_host)
 
 #Create embedded elements constraints
-embedded_elements_constraints(N_CNTs, matrixName, str_host)
+embedded_elements_constraints(modelName, N_CNTs, matrixName, str_host)
 
 #Create Step and add boundary conditions
 create_step_and_bcs(modelName, matrixName, stpName, P0, corner, Lxyz)
 
 start = time.time()
 #Generate meshes
-generate_matrix_mesh(matrixName, Lxyz, matrixMeshSize)
-generate_cnt_meshes(N_CNTs, cnt_struct, cnt_coords)
+generate_matrix_mesh(modelName, matrixName, Lxyz, matrixMeshSize)
+generate_cnt_meshes(modelName, N_CNTs, cnt_struct, cnt_coords)
 
 end = time.time()
 print("Time for meshing: ", end-start)
@@ -1153,11 +1137,11 @@ sets_for_elements_to_hide(modelName, matrixName, P0, Lxyz, matrixMeshSize, halfM
 
 #Create sets for the matrix (sample in the C++ code)
 #NOTE: Sets are generated on root assembly
-create_sets_for_matrix(P0, Lxyz, matrixName)
+create_sets_for_matrix(modelName, P0, Lxyz, matrixName)
 
 #Create sets for central CNT nodes
 #NOTE: Sets are generated on root assembly
-create_all_sets_for_cnt_points(N_CNTs, cnt_struct, cnt_coords)
+create_all_sets_for_cnt_points(modelName, N_CNTs, cnt_struct, cnt_coords)
 
 #Name of the job to be used based on its parameters
 #CNT-'Number of CNTs in the RVE'
