@@ -361,7 +361,7 @@ def Create_RVE(model, sheetsz, rveName, P0, Lxyz):
     #Delete the sketch
     del mdb.models[model].sketches['__profile__']
     
-def Create_Matrix(modelName, P0, Lxyz, Lxyz_ext, matrixName):
+def Create_Matrix(modelName, P0, Lxyz, Lxyz_ext, matrixName, matrixMeshSize, halfMatrixMeshSize):
     
     #Create a sketch
     mdb.models[modelName].ConstrainedSketch(name='__profile__', sheetSize=200.0)
@@ -488,13 +488,13 @@ def Create_BiggerBox(model, sheetsz, part, P0, Lxyz, margin):
         depth=lengthBiggerBox_z, sketch=mdb.models[model].sketches['__profile__'])
     del mdb.models[model].sketches['__profile__']
 
-def Create_Matrix_Instance(modelName, matrixName, P0):
+def Create_Matrix_Instance(modelName, matrixName, P0, matrixMeshSize):
 
     #Instance name of matrix
-    str_mat = matrixName + '-1'
+    str_mat_inst = matrixName + '-1'
 
     #Create an instance of the matrix
-    mdb.models[modelName].rootAssembly.Instance(dependent=ON, name=str_mat, part=mdb.models[modelName].parts[matrixName])
+    mdb.models[modelName].rootAssembly.Instance(dependent=ON, name=str_mat_inst, part=mdb.models[modelName].parts[matrixName])
 
     #Translate instance
     #i.e: endpoint - starting point = (P0[0], P0[1], P0[2]) - (P0[0]+matrixMeshSize, P0[1]+matrixMeshSize, matrixMeshSize)
@@ -1381,6 +1381,59 @@ def Create_Set_For_CNT_Points(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt
     #Print the length of the set
     print('%s nodes=%d points=%d'%(node_set_str, len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes), cnt_end+1-cnt_start))
 
+#This function creates an element set that contains the elements in the extended region of the RVE
+#that need to be hidden in the visualization
+def Sets_For_Elements_To_Hide(modelName, matrixName, P0, Lxyz, matrixMeshSize, halfMatrixMeshSize):
+    
+    #Initialize empty array
+    elsToHide = []
+    
+    #Name for the set that will contain all elements in the extended layer
+    hideSetName = 'HIDE-SET'
+    
+    #String for matrix instance
+    matrixInstance = matrixName + '-1'
+    
+    #Add elements from top
+    elsToHide.append(mdb.models[modelName].rootAssembly.instances[matrixInstance].elements.getByBoundingBox(
+        P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]+Lxyz[2]-halfMatrixMeshSize,
+        P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize))
+    #print(P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]+Lxyz[2]-halfMatrixMeshSize)
+    #print(P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize)
+    #mdb.models[modelName].rootAssembly.ReferencePoint(point=(P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]+Lxyz[2]-halfMatrixMeshSize))
+    #mdb.models[modelName].rootAssembly.ReferencePoint(point=(P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize))
+    #mdb.models[modelName].parts[matrixName].DatumPointByCoordinate( (P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]+Lxyz[2]-halfMatrixMeshSize) )
+    #mdb.models[modelName].parts[matrixName].DatumPointByCoordinate( (P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize) )
+    #print('len(elsToHide)=',len(elsToHide))
+    
+    #Add elements from bottom
+    elsToHide.append(mdb.models[modelName].rootAssembly.instances[matrixInstance].elements.getByBoundingBox(
+        P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]-1.5*matrixMeshSize,
+        P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+halfMatrixMeshSize))
+    #print('len(elsToHide)=',len(elsToHide))
+    
+    #Add elements from sides
+    #Height along y-axis
+    elsToHide.append(mdb.models[modelName].rootAssembly.instances[matrixInstance].elements.getByBoundingBox(
+        P0[0]-1.5*matrixMeshSize, P0[1]+Lxyz[1]-halfMatrixMeshSize, P0[2]-1.5*matrixMeshSize,
+        P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize))
+    #print('len(elsToHide)=',len(elsToHide))
+    elsToHide.append(mdb.models[modelName].rootAssembly.instances[matrixInstance].elements.getByBoundingBox(
+        P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]-1.5*matrixMeshSize,
+        P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+halfMatrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize))
+    #print('len(elsToHide)=',len(elsToHide))
+    #Height along x-axis
+    elsToHide.append(mdb.models[modelName].rootAssembly.instances[matrixInstance].elements.getByBoundingBox(
+        P0[0]+Lxyz[0]-halfMatrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]-1.5*matrixMeshSize,
+        P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize))
+    #print('len(elsToHide)=',len(elsToHide))
+    elsToHide.append(mdb.models[modelName].rootAssembly.instances[matrixInstance].elements.getByBoundingBox(
+        P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]-1.5*matrixMeshSize,
+        P0[0]+halfMatrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize))
+    #print('len(elsToHide)=',len(elsToHide))
+    
+    mdb.models[modelName].rootAssembly.Set(elements=elsToHide, name=hideSetName)
+
 #Sets needed to create the PBC equations
 def Create_Set_for_PBC(model, matrixName, P0, Lxyz, corner):
 
@@ -1530,10 +1583,12 @@ with open(struct_file) as f:
 corner = (P0[0]+Lxyz[0], P0[1]+Lxyz[1], P0[2]+Lxyz[2])
 
 #Get the number of GNPs
-N_GSs = len(data_gnp)
-    
+#N_GSs = len(data_gnp)
+N_GSs = 2
+
 #Get the number of CNTs
-N_CNTs = int(cnt_struct[0][0])
+#N_CNTs = int(cnt_struct[0][0])
+N_CNTs = 2
 
 print('There are ' + str(N_GSs) + ' graphene sheets inside the RVE.')
 
@@ -1546,6 +1601,8 @@ selectedElementCode = Select_Elemet_Type(selectedGeomOrder)
 
 #Mesh size for the matrix (um)
 matrixMeshSize = Lxyz[1]/elementsPerSide
+#Also calculate half the mesh size as it is used often
+halfMatrixMeshSize = 0.5*matrixMeshSize
 
 #Embedded element mesh size
 eeMeshSize = matrixMeshSize*meshRatio
@@ -1556,7 +1613,7 @@ Lxyz_ext = (Lxyz[0] + 2.0*matrixMeshSize, Lxyz[1] + 2.0*matrixMeshSize, Lxyz[2] 
 ####################################---MODEL CREATION---######################################
 
 #Creating the matrix part
-Create_Matrix(modelName, P0, Lxyz, Lxyz_ext, matrixName)
+Create_Matrix(modelName, P0, Lxyz, Lxyz_ext, matrixName, matrixMeshSize, halfMatrixMeshSize)
 
 #Creating the RVE
 Create_RVE(modelName, sheetSize, rveName, P0, Lxyz)
@@ -1586,7 +1643,7 @@ Create_Section(modelName, cntMaterial)
 mdb.models[modelName].rootAssembly.DatumCsysByDefault(CARTESIAN)
 
 #Create instance of the matrix
-Create_Matrix_Instance(modelName, matrixName, P0)
+Create_Matrix_Instance(modelName, matrixName, P0, matrixMeshSize)
 
 #Create an RVE instance
 Create_RVE_Instance(modelName, rveName, P0)
@@ -1650,6 +1707,9 @@ Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, N_GSs, i
 #Create sets for central CNT nodes
 #NOTE: Sets are generated on root assembly
 Create_All_Sets_For_CNT_Points(modelName, N_CNTs, cnt_struct, cnt_coords)
+
+#Create set for elements to hide in visualization
+Sets_For_Elements_To_Hide(modelName, matrixName, P0, Lxyz, matrixMeshSize, halfMatrixMeshSize)
 
 print('The model has been completed in %s seconds.' % round(time.time() - start_time, 1))
 
