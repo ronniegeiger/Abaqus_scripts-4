@@ -318,8 +318,6 @@ def cnt_part(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords):
 	
 	#Delete the initial point as it is not used anymore
 	del mdb.models[modelName].parts[str_part].features['RP']
-		
-	#datum_points(cnt_rad, cnt_start, cnt_end, cnt_coords, str_part)
 	
 #This function generates all CNT parts
 def cnt_parts_all(modelName, N_CNTs, cnt_struct, cnt_coords):
@@ -811,57 +809,7 @@ def create_step_and_bcs(modelName, str_matrix, stpName, P0, corner, Lxyz):
 	#############################################################################
 	#Set the output request
 	mdb.models[modelName].fieldOutputRequests['F-Output-1'].setValues(variables=('S', 'E', 'U'))
-
-
-#This function partitions the CNT into various cells
-def datum_points(cnt_rad, cnt_start, cnt_end, cnt_coords, str_part):
 	
-	#Calculate the radius multiplied by cos(PI/4)
-	new_rad = cnt_rad*cos45
-	
-	#Iterate over the CNT points, starting on the secont point and finishing on the previous to last point
-	for i in range(cnt_start+1, cnt_end): 
-		
-		#Get the points of the CNT segments that share point i
-		#End point of first CNT segment
-		P1 = cnt_coords[i-1]
-		#Point shared by both CNT segments
-		P2 = cnt_coords[i]
-		#End point of second CNT segment
-		P3 = cnt_coords[i+1]
-		
-		#Get the unit vector of first CNT segment
-		v1 = get_unit_vector(P2, P1)
-		
-		#Get the unit vector of second CNT segment
-		v2 = get_unit_vector(P2, P3)
-		
-		#Get a vector that is the average of v1 and v2
-		vm = ((v1[0]+v2[0])/2, (v1[1]+v2[1])/2, (v1[2]+v2[2])/2)
-		#print('vm')
-		
-		#Get the normal for the plane at the midpoint
-		N = cross(cross(v1, vm), vm)
-		
-		#Get the rotation matrix corresponding to the current CNT segment (P1P2)
-		R = rotation_matrix((0.0, 0.0, 0.0), N)
-		#print('R')
-		
-		#Calculate points on the octagon
-		#(0.0, cnt_rad, 0.0)
-		Q1 = (cnt_rad*R[0][1] + P2[0], cnt_rad*R[1][1] + P2[1], cnt_rad*R[2][1] + P2[2])
-		#(new_rad, new_rad)
-		Q2 = (new_rad*(R[0][0] + R[0][1]) + P2[0], new_rad*(R[1][0] + R[1][1]) + P2[1], new_rad*(R[2][0] + R[2][1]) + P2[2])
-		#(cnt_rad, 0.0
-		Q3 = (cnt_rad*R[0][0] + P2[0], cnt_rad*R[1][0] + P2[1], cnt_rad*R[2][0] + P2[2])
-		#Create datum points
-		mdb.models['Model-1'].parts[str_part].DatumPointByCoordinate(coords=Q1)
-		mdb.models['Model-1'].parts[str_part].DatumPointByCoordinate(coords=Q2)
-		mdb.models['Model-1'].parts[str_part].DatumPointByCoordinate(coords=Q3)
-		mdb.models['Model-1'].parts[str_part].DatumPointByCoordinate(coords=P2)
-		#print('P2=',P2)
-
-		
 #This function creates two sets for two of the vertices of the matrix (sample), where each set has only one node
 #These nodes are on the diagonal of the cuboid that defines the matrix (sample) 
 def create_sets_for_matrix(modelName, P0, Lxyz, str_matrix):
