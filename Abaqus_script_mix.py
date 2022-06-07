@@ -860,7 +860,7 @@ def Sets_For_Embedded_Elements_CNTs(model, P0, Lxyz, N_CNTs, cnt_struct, cnt_coo
 
     #Set for the matrix
     mdb.models[model].rootAssembly.Set(
-	    cells=mdb.models[model].rootAssembly.instances[str_matrix + '-1'].cells.findAt((Pc, ) ),
+	    cells=mdb.models[model].rootAssembly.instances[str_matrix + '-1'].cells ),
 	    name=str_host)
 
     #Variable to keep the count of CNT points
