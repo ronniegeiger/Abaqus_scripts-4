@@ -413,10 +413,13 @@ def materials_and_sections_cnt(N_CNTs, cntMaterial, cntSection, cntDensity, cntM
 
 #This function creates an element set that contains the elements in the extended region of the RVE
 #that need to be hidden in the visualization
-def sets_for_elements_to_hide(modelName, matrixName, hideSetName, P0, Lxyz, matrixMeshSize, halfMatrixMeshSize):
+def sets_for_elements_to_hide(modelName, matrixName, P0, Lxyz, matrixMeshSize, halfMatrixMeshSize):
 	
 	#Initialize empty array
 	elsToHide = []
+    
+    #Name for the set that will contain all elements in the extended layer
+    hideSetName = 'HIDE-SET'
 	
 	#String for matrix instance
 	matrixInstance = matrixName + '-1'
@@ -979,7 +982,7 @@ struct_file = 'cnt_struct.csv'
 sample_file = 'sample_geom.csv'
 	
 #Define the string for the name of the matrix part
-str_matrix = 'Matrix'
+matrixName = 'Matrix'
 
 #String for the host set (i.e., the matrix)
 str_host = 'host_Set'
@@ -1036,7 +1039,6 @@ cnt_rad_max = 0.03
 #Some names
 modelName = 'Model-1'
 stpName = 'Step-1'
-hideSetName = 'HIDE-SET'
 
 #Displacement flags
 #These flags inidicate if displacement is applied in a direction
@@ -1101,8 +1103,8 @@ corner = (P0[0]+Lxyz[0], P0[1]+Lxyz[1], P0[2]+Lxyz[2])
 Lxyz_ext = (Lxyz[0] + 2.0*matrixMeshSize, Lxyz[1] + 2.0*matrixMeshSize, Lxyz[2] + 2.0*matrixMeshSize)
 
 #Generate the matrix part
-matrix_part(modelName, P0, Lxyz, Lxyz_ext, str_matrix)
-#mdb.models[modelName].parts[str_matrix].DatumPointByCoordinate(corner)
+matrix_part(modelName, P0, Lxyz, Lxyz_ext, matrixName)
+#mdb.models[modelName].parts[matrixName].DatumPointByCoordinate(corner)
     
 #Get the number of CNTs
 N_CNTs = int(cnt_struct[0][0])
@@ -1120,34 +1122,34 @@ print("Time for part generation: ", end-start)
 start = end
 
 #Generate materials and assign sections
-materials_and_sections_matrix(str_matrix, matrixMaterial, matrixSection, matrixDensity, matrixModulus, matrixPoissonR)
+materials_and_sections_matrix(matrixName, matrixMaterial, matrixSection, matrixDensity, matrixModulus, matrixPoissonR)
 materials_and_sections_cnt(N_CNTs, cntMaterial, cntSection, cntDensity, cntModulus, cntPoissonR)
 
 #Generate assembly
-generate_assembly(modelName, N_CNTs, str_matrix)
+generate_assembly(modelName, N_CNTs, matrixName)
 
 #Create sets that will be used when creating the embedded element constraints
-sets_for_embedded_elements(modelName, P0, Lxyz, N_CNTs, cnt_struct, cnt_coords, str_matrix, str_host)
+sets_for_embedded_elements(modelName, P0, Lxyz, N_CNTs, cnt_struct, cnt_coords, matrixName, str_host)
 
 #Create embedded elements constraints
-embedded_elements_constraints(N_CNTs, str_matrix, str_host)
+embedded_elements_constraints(N_CNTs, matrixName, str_host)
 
 #Create Step and add boundary conditions
-create_step_and_bcs(modelName, str_matrix, stpName, P0, corner, Lxyz)
+create_step_and_bcs(modelName, matrixName, stpName, P0, corner, Lxyz)
 
 #Generate meshes
-generate_matrix_mesh(str_matrix, Lxyz, matrixMeshSize)
+generate_matrix_mesh(matrixName, Lxyz, matrixMeshSize)
 generate_cnt_meshes(N_CNTs, cnt_struct, cnt_coords)
 
 end = time.time()
 print("Time for instances and meshing: ", end-start)
 
 #Create set for elements to hide in visualization
-sets_for_elements_to_hide(modelName, str_matrix, hideSetName, P0, Lxyz, matrixMeshSize, halfMatrixMeshSize)
+sets_for_elements_to_hide(modelName, matrixName, P0, Lxyz, matrixMeshSize, halfMatrixMeshSize)
 
 #Create sets for the matrix (sample in the C++ code)
 #NOTE: Sets are generated on root assembly
-create_sets_for_matrix(P0, Lxyz, str_matrix)
+create_sets_for_matrix(P0, Lxyz, matrixName)
 
 #Create sets for central CNT nodes
 #NOTE: Sets are generated on root assembly
@@ -1156,7 +1158,7 @@ create_all_sets_for_cnt_points(N_CNTs, cnt_struct, cnt_coords)
 #Create and submit job using Abaqus default values
 mdb.Job(atTime=None, contactPrint=OFF, description='', echoPrint=OFF, 
 	explicitPrecision=SINGLE, getMemoryFromAnalysis=True, historyPrint=OFF, 
-	memory=90, memoryUnits=PERCENTAGE, model='Model-1', modelPrint=OFF, 
+	memory=90, memoryUnits=PERCENTAGE, model=modelName, modelPrint=OFF, 
 	multiprocessingMode=DEFAULT, name='Job-1', nodalOutputPrecision=SINGLE, 
 	numCpus=1, numGPUs=0, queue=None, resultsFormat=ODB, scratch='', type=
 	ANALYSIS, userSubroutine='', waitHours=0, waitMinutes=0)
