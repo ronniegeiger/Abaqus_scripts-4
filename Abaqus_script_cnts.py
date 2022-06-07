@@ -1108,9 +1108,9 @@ matrix_part(modelName, P0, Lxyz, Lxyz_ext, matrixName)
     
 #Get the number of CNTs
 N_CNTs = int(cnt_struct[0][0])
-
 #A small fixed number used for debugging and testing
 #N_CNTs=2
+print('There are ' + str(N_CNTs) + ' CNTsinside the RVE.')
 
 start = time.time()
 

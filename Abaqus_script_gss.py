@@ -457,7 +457,7 @@ def Translate_Rotate_and_Cut_GS(model, i, P0, corner, gs_part_str, gs_inst_str):
         indexInside.append(i)    
 
     #This seems to be needed for the last GNP
-    if i == numRows_gnp - 1:
+    if i == N_GSs - 1:
         GS_assembly.features['CUTTER-1'].suppress()
  
 #This function returns true if a point is outside the RVE
@@ -888,9 +888,9 @@ with open(csv_geomFile) as file_geom:
 corner = (P0[0]+Lxyz[0], P0[1]+Lxyz[1], P0[2]+Lxyz[2])
 
 #Calculate the number of GNPs
-numRows_gnp = len(data_gnp)
+N_GSs = len(data_gnp)
 
-print('There are ' + str(numRows_gnp) + ' graphene sheets inside the RVE.')
+print('There are ' + str(N_GSs) + ' GSs inside the RVE.')
 
 #Number of GS laying inside/outside the RVE
 indexOutside = []
@@ -943,7 +943,7 @@ Assign_Section(modelName, matrixMaterial, matrixName)
 #    sectionName=matrixMaterial, thicknessAssignment=FROM_SECTION)
 
 #Create parts and instances for GSs
-Create_All_GSs(modelName, fillerMaterial, sheetSize, numRows_gnp, P0, corner)
+Create_All_GSs(modelName, fillerMaterial, sheetSize, N_GSs, P0, corner)
 
 #------------------------------------END: CREATE ASSEMBLY------------------------------------#
 
@@ -973,19 +973,19 @@ mdb.models[modelName].fieldOutputRequests['F-Output-1'].setValues(variables=('S'
 
 #---------------------------------------START: MESHING---------------------------------------#
 
-Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, numRows_gnp, indexInside, indexOutside)
+Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, N_GSs, indexInside, indexOutside)
 
 print('The model has been completed in %s seconds.' % round(time.time() - start_time, 1))
 
 #Check if files for re-meshing the model are needed
 if reMeshModel == 1:
     #Create files that contain the index of each GS depending on its state (inside or outside the RVE)
-    textfile_IO = open('GS-'+str(numRows_gnp)+'_indexOutside.txt', 'w')
+    textfile_IO = open('GS-'+str(N_GSs)+'_indexOutside.txt', 'w')
     for element in indexOutside:
         textfile_IO.write(str(element)+',')
     textfile_IO.close()
 
-    textfile_II = open('GS-'+str(numRows_gnp)+'_indexInside.txt', 'w')
+    textfile_II = open('GS-'+str(N_GSs)+'_indexInside.txt', 'w')
     for element in indexInside:
         textfile_II.write(str(element)+',')
     textfile_II.close()
@@ -999,7 +999,7 @@ if createJob == 1:
     #GS-'Number of GSs in the RVE'
     #EPS-'Number of elements per side'
     #MR-'Mesh ratio' (EmbeddedMesh/HostMesh)x100
-    jobName = 'GS-'+str(numRows_gnp)+'_EPS-'+str(elementsPerSide)+'_MR-'+str(int(100*meshRatio))
+    jobName = 'GS-'+str(N_GSs)+'_EPS-'+str(elementsPerSide)+'_MR-'+str(int(100*meshRatio))
 
     mdb.Job(atTime=None, contactPrint=OFF, description='', echoPrint=OFF, 
         explicitPrecision=SINGLE, getMemoryFromAnalysis=True, historyPrint=OFF, 

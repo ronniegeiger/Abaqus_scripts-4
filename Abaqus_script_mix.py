@@ -860,7 +860,7 @@ def Sets_For_Embedded_Elements_CNTs(model, P0, Lxyz, N_CNTs, cnt_struct, cnt_coo
 
     #Set for the matrix
     mdb.models[model].rootAssembly.Set(
-	    cells=mdb.models[model].rootAssembly.instances[str_matrix + '-1'].cells ),
+	    cells=mdb.models[model].rootAssembly.instances[str_matrix + '-1'].cells,
 	    name=str_host)
 
     #Variable to keep the count of CNT points
@@ -1590,7 +1590,8 @@ N_GSs = 2
 #N_CNTs = int(cnt_struct[0][0])
 N_CNTs = 2
 
-print('There are ' + str(N_GSs) + ' graphene sheets inside the RVE.')
+print('There are ' + str(N_GSs) + ' GSs inside the RVE.')
+print('There are ' + str(N_CNTs) + ' CNTsinside the RVE.')
 
 #Arrays to store GSs laying inside or partially outside the RVE
 indexOutside = []
