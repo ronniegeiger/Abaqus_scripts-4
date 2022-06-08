@@ -912,6 +912,12 @@ def create_all_sets_for_cnt_points(modelName, N_CNTs, cnt_struct, cnt_coords):
 coord_file = 'cnt_coordinates.csv'
 struct_file = 'cnt_struct.csv'
 sample_file = 'sample_geom.csv'
+
+###################### Mesh flags and variables
+#Number of elements per side of the RVE
+elementsPerSide = 10
+#EmbeddedMesh/HostMesh ratio
+meshRatio = 0.5
 	
 #Define the string for the name of the matrix part
 matrixName = 'Matrix'
@@ -1023,7 +1029,7 @@ with open(sample_file) as f:
 #Determine the size of the mesh for the polymer matrix
 #As a default mesh size, consider 10 elements per side
 #But elment size should be at least twide the radius
-matrixMeshSize = max(min(Lxyz)/10.0, 2.5*cnt_rad_max)
+matrixMeshSize = max(min(Lxyz)/elementsPerSide, 2.5*cnt_rad_max)
 #print('matrixMeshSize=',matrixMeshSize)
 halfMatrixMeshSize = 0.5*matrixMeshSize
 
@@ -1094,7 +1100,7 @@ create_all_sets_for_cnt_points(modelName, N_CNTs, cnt_struct, cnt_coords)
 #Name of the job to be used based on its parameters
 #CNT-'Number of CNTs in the RVE'
 #EPS-'Number of elements per side'
-jobName = 'CNT-'+str(N_CNTs)
+jobName = 'CNT-'+str(N_CNTs)+'_EPS-'+str(elementsPerSide)
 
 #Create and submit job using Abaqus default values
 mdb.Job(atTime=None, contactPrint=OFF, description='', echoPrint=OFF, 
