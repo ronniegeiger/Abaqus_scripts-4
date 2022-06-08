@@ -1398,12 +1398,6 @@ def Sets_For_Elements_To_Hide(modelName, matrixName, P0, Lxyz, matrixMeshSize, h
     elsToHide.append(mdb.models[modelName].rootAssembly.instances[matrixInstance].elements.getByBoundingBox(
         P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]+Lxyz[2]-halfMatrixMeshSize,
         P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize))
-    #print(P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]+Lxyz[2]-halfMatrixMeshSize)
-    #print(P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize)
-    #mdb.models[modelName].rootAssembly.ReferencePoint(point=(P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]+Lxyz[2]-halfMatrixMeshSize))
-    #mdb.models[modelName].rootAssembly.ReferencePoint(point=(P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize))
-    #mdb.models[modelName].parts[matrixName].DatumPointByCoordinate( (P0[0]-1.5*matrixMeshSize, P0[1]-1.5*matrixMeshSize, P0[2]+Lxyz[2]-halfMatrixMeshSize) )
-    #mdb.models[modelName].parts[matrixName].DatumPointByCoordinate( (P0[0]+Lxyz[0]+1.5*matrixMeshSize, P0[1]+Lxyz[1]+1.5*matrixMeshSize, P0[2]+Lxyz[2]+1.5*matrixMeshSize) )
     #print('len(elsToHide)=',len(elsToHide))
     
     #Add elements from bottom
