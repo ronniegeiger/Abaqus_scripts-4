@@ -738,7 +738,7 @@ def create_step_and_bcs(modelName, str_matrix, stpName, P0, corner, Lxyz):
 	#############################################################################
 	#Create mechanical step
 	mdb.models[modelName].StaticStep(
-	    initialInc=0.1, 
+	    initialInc=inicialIncrement, 
 	    name=stpName, 
 	    noStop=OFF, 
 	    previous='Initial', 
@@ -971,6 +971,9 @@ cnt_rad_max = 0.03
 #Some names
 modelName = 'Model-1'
 stpName = 'Step-1'
+
+#Increment for step
+inicialIncrement=0.1
 
 #Displacement flags
 #These flags inidicate if displacement is applied in a direction

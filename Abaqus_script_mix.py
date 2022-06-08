@@ -178,7 +178,7 @@ tPeriod = 1
 # Max. temperature change
 deltaIncrement = 1
 # Initial increment size
-inicialIncrement = 0.01
+inicialIncrement = 0.1
 # Minimum increment size
 minIncrement = 1e-15
 #Maximum number of increments
@@ -987,7 +987,7 @@ def Add_Boundary_Conditions(model, temp):
         
         #Create mechanical step
         mdb.models[model].StaticStep(
-            initialInc=0.1, 
+            initialInc=inicialIncrement, 
             name=stpName, 
             noStop=OFF, 
             previous='Initial', 
