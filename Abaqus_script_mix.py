@@ -883,7 +883,7 @@ def Sets_For_Embedded_Elements_CNTs(model, P0, Lxyz, N_CNTs, cnt_struct, cnt_coo
 
         #Create the set for cnt_i
         mdb.models[model].rootAssembly.Set(
-            cells=mdb.models[model].rootAssembly.instances[str_cnt_inst].cells.findAt( (cnt_coords[acc_pts+1],) ),
+            cells=mdb.models[model].rootAssembly.instances[str_cnt_inst].cells,
             name=set_str)
 
         #Increase the number of accumulated points
