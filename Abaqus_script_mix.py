@@ -1353,30 +1353,23 @@ def Create_Set_For_CNT_Points(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt
 
     #Get the name of the node set
     node_set_str = cnt_string_node_set(cnt_i)
+    
+    #Array to store all nodes that correspond to CNT points
+    allNodes = []
 
-    #Create a set with the name of the node set and containing the first point in the CNT
+    #Iterate over all nodes in the centerline of the CNT
+    for i in range(cnt_start, cnt_end+1):
+        
+        #Find and append node to array
+        allNodes.append(
+            mdb.models[modelName].rootAssembly.instances[cnt_str].nodes.getByBoundingSphere(
+                center=cnt_coords[i], 
+                radius=new_rad))
+    
+    #Create a set with the name of the node set and containing all nodes in the centerline of the CNT
     mdb.models[modelName].rootAssembly.Set(
-        nodes=mdb.models[modelName].rootAssembly.instances[cnt_str].nodes.getByBoundingSphere(center=cnt_coords[cnt_start], radius=new_rad),
+        nodes=allNodes,
         name=node_set_str)
-
-    #Iterate over all points of the CNT, starting on the second point since the first point is already in the set
-    for i in range(cnt_start+1, cnt_end+1):
-
-        #Create a temporary set with node i
-        node_set_tmp = mdb.models[modelName].rootAssembly.Set(
-            nodes=mdb.models[modelName].rootAssembly.instances[cnt_str].nodes.getByBoundingSphere(center=cnt_coords[i], radius=new_rad),
-            name='tmp_set')
-
-        #Merge two sets
-        #mdb.models[modelName].rootAssembly.SetByMerge(
-        #	name=node_set_str, 
-        #	sets=(node_set_tmp, mdb.models[modelName].rootAssembly.sets[node_set_str]))
-
-        #Perform union of two sets
-        mdb.models[modelName].rootAssembly.SetByBoolean(
-            name=node_set_str,
-            operation=UNION,
-            sets=(node_set_tmp, mdb.models[modelName].rootAssembly.sets[node_set_str]))
 
     #Print the length of the set
     #print('%s nodes=%d points=%d'%(node_set_str, len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes), cnt_end+1-cnt_start))
