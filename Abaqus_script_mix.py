@@ -853,18 +853,12 @@ def Generate_CNT_Assembly(model, N_CNTs):
             part=mdb.models[model].parts[str_cnt])	
  
 #This function creates the sets that will be used when creating the embedded element constraints
-def Sets_For_Embedded_Elements_CNTs(model, P0, Lxyz, N_CNTs, cnt_struct, cnt_coords, str_matrix, str_host):
-
-    #Point at the center of the matrix
-    Pc = (P0[0] + 0.5*Lxyz[0], P0[1] + 0.5*Lxyz[1], P0[2] + 0.5*Lxyz[2]);
+def Sets_For_Embedded_Elements_CNTs(model, N_CNTs, str_matrix, str_host):
 
     #Set for the matrix
     mdb.models[model].rootAssembly.Set(
 	    cells=mdb.models[model].rootAssembly.instances[str_matrix + '-1'].cells,
 	    name=str_host)
-
-    #Variable to keep the count of CNT points
-    acc_pts = 0
 
     #Sets for the CNTs
     for cnt_i in range(1, N_CNTs+1):
@@ -875,9 +869,6 @@ def Sets_For_Embedded_Elements_CNTs(model, P0, Lxyz, N_CNTs, cnt_struct, cnt_coo
         #Generate name for CNT instance
         str_cnt_inst = string_instance('CNT', cnt_i)
 
-        #Number of points in CNTi and its radius
-        N_p = int(cnt_struct[cnt_i][0])
-
         #Generate name of set for cnt_i
         set_str = ee_string('CNT', cnt_i)
 
@@ -885,9 +876,6 @@ def Sets_For_Embedded_Elements_CNTs(model, P0, Lxyz, N_CNTs, cnt_struct, cnt_coo
         mdb.models[model].rootAssembly.Set(
             cells=mdb.models[model].rootAssembly.instances[str_cnt_inst].cells,
             name=set_str)
-
-        #Increase the number of accumulated points
-        acc_pts += N_p
 
 #This functions creates the constraints for the embedded elements
 def Embedded_Elements_Constraints_CNTs(model, N_CNTs, str_matrix, str_host):
@@ -1658,7 +1646,7 @@ end = time.time()
 print("Time for part and instance generation: ", end-start)
 
 #Create sets that will be used when creating the embedded element constraints for CNTs
-Sets_For_Embedded_Elements_CNTs(modelName, P0, Lxyz, N_CNTs, cnt_struct, cnt_coords, matrixName, strHost)
+Sets_For_Embedded_Elements_CNTs(modelName, N_CNTs, matrixName, strHost)
 
 #Create embedded elements constraints for CNTs
 Embedded_Elements_Constraints_CNTs(modelName, N_CNTs, matrixName, strHost)
