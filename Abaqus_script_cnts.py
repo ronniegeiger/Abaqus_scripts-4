@@ -457,19 +457,12 @@ def sets_for_elements_to_hide(modelName, matrixName, P0, Lxyz, matrixMeshSize, h
 	mdb.models[modelName].rootAssembly.Set(elements=elsToHide, name=hideSetName)
 
 #This function creates the sets that will be used when creating the embedded element constraints
-def sets_for_embedded_elements(modelName, P0, Lxyz, N_CNTs, cnt_struct, cnt_coords, str_matrix, str_host):
-	
-	#Point at the center of the matrix
-	Pc = (P0[0] + 0.5*Lxyz[0], P0[1] + 0.5*Lxyz[1], P0[2] + 0.5*Lxyz[2]);
+def sets_for_embedded_elements(modelName, N_CNTs, str_matrix, str_host):
 	
 	#Set for the matrix
 	mdb.models[modelName].rootAssembly.Set(
-		#cells=mdb.models[modelName].rootAssembly.instances[str_matrix + '-1'].cells.findAt((Pc, ) ),
 		cells=mdb.models[modelName].rootAssembly.instances[str_matrix + '-1'].cells,
 		name=str_host)
-		
-	#Variable to keep the count of CNT points
-	acc_pts = 0
 	
 	#Sets for the CNTs
 	for cnt_i in range(1, N_CNTs+1):
@@ -477,28 +470,19 @@ def sets_for_embedded_elements(modelName, P0, Lxyz, N_CNTs, cnt_struct, cnt_coor
 		#Get the string for the CNT part
 		cnt_str = cnt_string_part(cnt_i)
 		
-		#Number of points in CNTi and its radius
-		N_p = int(cnt_struct[cnt_i][0])
-		
 		#Generate name of set for cnt_i
 		set_str = cnt_str + '_EESet'
 		
 		#Create the set for cnt_i
 		mdb.models[modelName].rootAssembly.Set(
-			cells=mdb.models[modelName].rootAssembly.instances[cnt_str + '-1'].cells.findAt( (cnt_coords[acc_pts+1],) ),
+			cells=mdb.models[modelName].rootAssembly.instances[cnt_str + '-1'].cells,
 			name=set_str)
-		
-		#Increase the number of accumulated points
-		acc_pts += N_p
 
 #This functions creates the constraints for the embedded elements
 def embedded_elements_constraints(modelName, N_CNTs, str_matrix, str_host):
 	
 	#Iterate over the CNTs
 	for cnt_i in range(1, N_CNTs+1):
-	
-		#Get the string for the CNT part
-		cnt_str = cnt_string_part(cnt_i)
 	
 		#Get the string for the CNT part
 		cnt_str = cnt_string_part(cnt_i)
@@ -1060,7 +1044,7 @@ end = time.time()
 print("Time for instance generation: ", end-start)
 
 #Create sets that will be used when creating the embedded element constraints
-sets_for_embedded_elements(modelName, P0, Lxyz, N_CNTs, cnt_struct, cnt_coords, matrixName, str_host)
+sets_for_embedded_elements(modelName, N_CNTs, matrixName, str_host)
 
 #Create embedded elements constraints
 embedded_elements_constraints(modelName, N_CNTs, matrixName, str_host)
