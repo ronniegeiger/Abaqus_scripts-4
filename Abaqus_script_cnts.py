@@ -415,9 +415,9 @@ def sets_for_elements_to_hide(modelName, matrixName, P0, Lxyz, matrixMeshSize, h
 	
 	#Initialize empty array
 	elsToHide = []
-    
-    #Name for the set that will contain all elements in the extended layer
-    hideSetName = 'HIDE-SET'
+	
+	#Name for the set that will contain all elements in the extended layer
+	hideSetName = 'HIDE-SET'
 	
 	#String for matrix instance
 	matrixInstance = matrixName + '-1'
