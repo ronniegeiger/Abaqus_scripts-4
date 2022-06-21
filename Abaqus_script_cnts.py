@@ -17,6 +17,21 @@ from connectorBehavior import *
 import math
 import csv
 import time
+import sys
+
+######################################---LOG FUNCTION---##########################################
+
+#This function is used to make message printing easier and simpler
+def plog(str):
+    
+    #Print to Abaqus message window
+    print(str)
+    
+    #Print to terminal
+    print >> sys.__stdout__, str
+    
+    #Print to file
+    pfile.write(str)
 
 ######################################---STRING FUNCTIONS---########################################
 
@@ -1025,7 +1040,17 @@ matrix_part(modelName, P0, Lxyz, Lxyz_ext, matrixName)
 N_CNTs = int(cnt_struct[0][0])
 #A small fixed number used for debugging and testing
 #N_CNTs=2
-print('There are ' + str(N_CNTs) + ' CNTs inside the RVE.')
+
+#Name of the job to be used based on its parameters
+#CNT-'Number of CNTs in the RVE'
+#EPS-'Number of elements per side'
+jobName = 'CNT-'+str(N_CNTs)+'_EPS-'+str(elementsPerSide)
+
+#Name of the file to save print messages
+print_file = jobName + '.txt'
+pfile = open(print_file, "a")
+
+plog('There are ' + str(N_CNTs) + ' CNTs inside the RVE.\n')
 
 start = time.time()
 
@@ -1033,7 +1058,7 @@ start = time.time()
 cnt_parts_all(modelName, N_CNTs, cnt_struct, cnt_coords)
 
 end = time.time()
-print("Time for part generation: ", end-start)
+plog("Time for part generation: {}\n".format(end-start))
 
 #Generate materials and assign sections
 materials_and_sections_matrix(modelName, matrixName, matrixMaterial, matrixSection, matrixDensity, matrixModulus, matrixPoissonR)
@@ -1044,7 +1069,7 @@ start = time.time()
 generate_assembly(modelName, N_CNTs, matrixName)
 
 end = time.time()
-print("Time for instance generation: ", end-start)
+plog("Time for instance generation: {}\n".format(end-start))
 
 #Create sets that will be used when creating the embedded element constraints
 sets_for_embedded_elements(modelName, N_CNTs, matrixName, str_host)
@@ -1061,8 +1086,8 @@ generate_matrix_mesh(modelName, matrixName, Lxyz, matrixMeshSize)
 generate_cnt_meshes(modelName, N_CNTs, cnt_struct, cnt_coords)
 
 end = time.time()
-print("Time for meshing: ", end-start)
-
+plog("Time for meshing: {}\n".format(end-start))
+start = time.time()
 #Create set for elements to hide in visualization
 sets_for_elements_to_hide(modelName, matrixName, P0, Lxyz, matrixMeshSize, halfMatrixMeshSize)
 
@@ -1074,10 +1099,8 @@ create_sets_for_matrix(modelName, P0, Lxyz, matrixName)
 #NOTE: Sets are generated on root assembly
 create_all_sets_for_cnt_points(modelName, N_CNTs, cnt_struct, cnt_coords)
 
-#Name of the job to be used based on its parameters
-#CNT-'Number of CNTs in the RVE'
-#EPS-'Number of elements per side'
-jobName = 'CNT-'+str(N_CNTs)+'_EPS-'+str(elementsPerSide)
+end = time.time()
+plog("Time for creating CNT point sets and elemnts to hide: {}\n".format(end-start))
 
 #Create and submit job using Abaqus default values
 mdb.Job(atTime=None, contactPrint=OFF, description='', echoPrint=OFF, 
@@ -1086,10 +1109,17 @@ mdb.Job(atTime=None, contactPrint=OFF, description='', echoPrint=OFF,
 	multiprocessingMode=DEFAULT, name=jobName, nodalOutputPrecision=SINGLE, 
 	numCpus=1, numGPUs=0, queue=None, resultsFormat=ODB, scratch='', type=
 	ANALYSIS, userSubroutine='', waitHours=0, waitMinutes=0)
+
+#Submit job and save time of submission
+start = time.time()
 mdb.jobs[jobName].submit(consistencyChecking=OFF)
+
+#Make the Python script to wait for the Abaqus job to finish
+#In this way the script can measure the execution time of the Abaqus simulation
 mdb.jobs[jobName].waitForCompletion()
 
 #Calcualte job executionand simulation time
 end = time.time()
-print("Time for Job execution: ",end-start)
-print("Time for Abaqus model: ",end-start0)
+plog("Time for Job execution: {}\n".format(end-start))
+plog("Time for Abaqus model: {}\n".format(end-start0))
+pfile.close()

@@ -18,6 +18,7 @@ import math
 import csv
 import multiprocessing
 import time
+import sys
 
 ########################################---VARIABLES---#######################################
 
@@ -180,6 +181,20 @@ rad2deg = 180/math.pi
 #"Zero" for comparing floating point numbers
 Zero = 1e-7
 
+######################################---LOG FUNCTION---##########################################
+
+#This function is used to make message printing easier and simpler
+def plog(str):
+    
+    #Print to Abaqus message window
+    print(str)
+    
+    #Print to terminal
+    print >> sys.__stdout__, str
+    
+    #Print to file
+    pfile.write(str)
+    
 ######################################---STRING FUNCTIONS---########################################
 
 #This function generates a string for the filler part
@@ -888,7 +903,17 @@ corner = (P0[0]+Lxyz[0], P0[1]+Lxyz[1], P0[2]+Lxyz[2])
 #Calculate the number of GNPs
 N_GSs = len(data_gnp)
 
-print('There are ' + str(N_GSs) + ' GSs inside the RVE.')
+#Name of the job to be used based on its parameters
+#GS-'Number of GSs in the RVE'
+#EPS-'Number of elements per side'
+#MR-'Mesh ratio' (EmbeddedMesh/HostMesh)x100
+jobName = 'GS-'+str(N_GSs)+'_EPS-'+str(elementsPerSide)+'_MR-'+str(int(100*meshRatio))
+
+#Name of the file to save print messages
+print_file = jobName + '.txt'
+pfile = open(print_file, "a")
+
+plog('There are ' + str(N_GSs) + ' GSs inside the RVE.')
 
 #Number of GS laying inside/outside the RVE
 indexOutside = []
@@ -946,7 +971,7 @@ Assign_Section(modelName, matrixMaterial, matrixName)
 Create_All_GSs(modelName, fillerMaterial, sheetSize, N_GSs, P0, corner)
 
 end = time.time()
-print("Time for part and instance generation: ", end-start)
+plog("Time for part and instance generation: {}\n".format(end-start))
 
 #------------------------------------END: CREATE ASSEMBLY------------------------------------#
 
@@ -979,7 +1004,7 @@ start = time.time()
 Generate_Meshes(modelName, matrixName, selectedElementCode, eeMeshSize, N_GSs, indexInside, indexOutside)
 
 end = time.time()
-print("Time for meshing: ", end-start)
+plog("Time for meshing: {}\n".format(end-start))
 
 #Check if files for re-meshing the model are needed
 if reMeshModel == 1:
@@ -998,13 +1023,8 @@ if reMeshModel == 1:
 ###################################---JOB SUBMISSION---######################################
 
 if createJob == 1:
-
-    #Name of the job to be used based on its parameters
-    #GS-'Number of GSs in the RVE'
-    #EPS-'Number of elements per side'
-    #MR-'Mesh ratio' (EmbeddedMesh/HostMesh)x100
-    jobName = 'GS-'+str(N_GSs)+'_EPS-'+str(elementsPerSide)+'_MR-'+str(int(100*meshRatio))
-
+    
+    #Create and submit job using Abaqus default values
     mdb.Job(atTime=None, contactPrint=OFF, description='', echoPrint=OFF, 
         explicitPrecision=SINGLE, getMemoryFromAnalysis=True, historyPrint=OFF, 
         memory=90, memoryUnits=PERCENTAGE, model=modelName, modelPrint=OFF, 
@@ -1013,12 +1033,18 @@ if createJob == 1:
         '', type=ANALYSIS, userSubroutine='', waitHours=0, waitMinutes=0)
 
     if submitJob == 1:
+        
+        #Submit job and save time of submission
         start = time.time()
         mdb.jobs[jobName].submit(consistencyChecking=OFF)
+        
+        #Make the Python script to wait for the Abaqus job to finish
+        #In this way the script can measure the execution time of the Abaqus simulation
         mdb.jobs[jobName].waitForCompletion()
         
         end = time.time()
-        print("Time for Job execution: ",end-start)
+        plog("Time for Job execution: {}\n".format(end-start))
 
 end = time.time()        
-print("Time for Abaqus model: ",end-start0)
+plog("Time for Abaqus model: {}\n".format(end-start0))
+pfile.close()
