@@ -18,6 +18,104 @@ import math
 import csv
 import time
 
+######################################---STRING FUNCTIONS---########################################
+
+#This function generates a string for the CNT part
+def cnt_string_part(cnt_i):
+	#Return the string in the format CNT-cnt_i
+	return 'CNT-%d' %(cnt_i)
+
+#This function generates a string for the CNT instance
+def cnt_string_instance(cnt_i):
+	#Return the string in the format CNT-cnt_i
+	return 'CNT-%d-1' %(cnt_i)
+
+#This function generates a string for the node set of CNT i
+def cnt_string_node_set(cnt_i):
+	#Return the string in the format CNT-nodes-cnt_i
+	return 'CNT-%d-nodes' %(cnt_i)
+
+######################################---MATH FUNCTIONS---########################################
+	
+#This function generates a rotation matrix
+def rotation_matrix(P1, P2):
+	
+	#Get the components of the vector in the direction of P1P2
+	ux = P2[0] - P1[0]
+	uy = P2[1] - P1[1]
+	uz = P2[2] - P1[2]
+	
+	#Squared quantities
+	ux2 = ux*ux
+	uy2 = uy*uy
+	
+	#Calculate the length of the vector u
+	u_length = sqrt(ux2 + uy2 + uz*uz);
+	        
+	#This quantity is used three times:
+	quantity = sqrt(ux2 + uy2);
+	        
+	#Calculate the trigonometric functions of the angles theta and phi
+	cos_phi = ux/quantity;
+	sin_phi = uy/quantity;
+	cos_theta = uz/u_length;
+	sin_theta = quantity/u_length;
+	
+	#Generate the components of the rotation matrix
+	R11 = cos_phi*cos_theta
+	R12 = -sin_phi
+	R13 = cos_phi*sin_theta
+	
+	R21 = sin_phi*cos_theta
+	R22 = cos_phi
+	R23 = sin_phi*sin_theta
+	
+	R31 = -sin_theta
+	R33 = cos_theta
+	
+	#Create a 'matrix' using the components found above
+	R = ((R11, R12, R13),(R21, R22, R23),(R31, 0.0, R33))
+	
+	#Return the rotation matrix
+	return R
+	
+#This function retunrs a unit vector going from P1 towards P2
+def get_unit_vector(P1, P2):
+	
+	#Get the vector going from P1 towards P2
+	v = (P2[0]-P1[0], P2[1]-P1[1], P2[2]-P1[2])
+	
+	#Calculate the length of vector v
+	length = sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2])
+	
+	#Return v as a unit vector
+	return (v[0]/length, v[1]/length, v[2]/length)
+	
+#This function makes the input vector a unit vector
+def make_unit(V):
+	
+	#Calculate length of V
+	length = sqrt(V[0]*V[0] + V[1]*V[1] + V[2]*V[2])
+	
+	#Return V as a unit vector
+	return (V[0]/length, V[1]/length, V[2]/length)
+	
+#Cross product of two vectors
+def cross(v1, v2):
+	
+	#Calculate the compoenents of the cross product
+	x = v1[1]*v2[2] - v1[2]*v2[1]
+	y = -v1[0]*v2[2] + v1[2]*v2[0]
+	z = v1[0]*v2[1] - v1[1]*v2[0]
+	
+	#Return the cross product
+	return (x,y,z)
+
+#Dot product of two vectors
+def dot(v1, v2):
+	
+	return (v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2])
+
 ######################################---ABAQUS FUNCTIONS---########################################
 
 def matrix_part(modelName, P0, Lxyz, Lxyz_ext, matrixName):
@@ -126,63 +224,6 @@ def matrix_part(modelName, P0, Lxyz, Lxyz_ext, matrixName):
 	    cells=tuple(cells_tmp), 
 	    normal=normal_edge, 
 	    point=P_cut)
-
-#This function generates a string for the CNT part
-def cnt_string_part(cnt_i):
-	#Return the string in the format CNT-cnt_i
-	return 'CNT-%d' %(cnt_i)
-
-#This function generates a string for the CNT instance
-def cnt_string_instance(cnt_i):
-	#Return the string in the format CNT-cnt_i
-	return 'CNT-%d-1' %(cnt_i)
-
-#This function generates a string for the node set of CNT i
-def cnt_string_node_set(cnt_i):
-	#Return the string in the format CNT-nodes-cnt_i
-	return 'CNT-%d-nodes' %(cnt_i)
-	
-#This function generates a rotation matrix
-def rotation_matrix(P1, P2):
-	
-	#Get the components of the vector in the direction of P1P2
-	ux = P2[0] - P1[0]
-	uy = P2[1] - P1[1]
-	uz = P2[2] - P1[2]
-	
-	#Squared quantities
-	ux2 = ux*ux
-	uy2 = uy*uy
-	
-	#Calculate the length of the vector u
-	u_length = sqrt(ux2 + uy2 + uz*uz);
-	        
-	#This quantity is used three times:
-	quantity = sqrt(ux2 + uy2);
-	        
-	#Calculate the trigonometric functions of the angles theta and phi
-	cos_phi = ux/quantity;
-	sin_phi = uy/quantity;
-	cos_theta = uz/u_length;
-	sin_theta = quantity/u_length;
-	
-	#Generate the components of the rotation matrix
-	R11 = cos_phi*cos_theta
-	R12 = -sin_phi
-	R13 = cos_phi*sin_theta
-	
-	R21 = sin_phi*cos_theta
-	R22 = cos_phi
-	R23 = sin_phi*sin_theta
-	
-	R31 = -sin_theta
-	R33 = cos_theta
-	
-	#Create a 'matrix' using the components found above
-	R = ((R11, R12, R13),(R21, R22, R23),(R31, 0.0, R33))
-	
-	#Return the rotation matrix
-	return R
 	
 #This function generates all edges of a CNT
 def generate_edges(modelName, cnt_start, cnt_end, cnt_coords, str_part):
@@ -259,44 +300,6 @@ def generate_sweep(modelName, P1, P2, cnt_rad, cnt_start, cnt_end, str_part):
 	    
 	#Delete sketch
 	del mdb.models[modelName].sketches['__profile__']
-	
-	
-#This function retunrs a unit vector going from P1 towards P2
-def get_unit_vector(P1, P2):
-	
-	#Get the vector going from P1 towards P2
-	v = (P2[0]-P1[0], P2[1]-P1[1], P2[2]-P1[2])
-	
-	#Calculate the length of vector v
-	length = sqrt(v[0]*v[0] + v[1]*v[1] + v[2]*v[2])
-	
-	#Return v as a unit vector
-	return (v[0]/length, v[1]/length, v[2]/length)
-	
-#This function makes the input vector a unit vector
-def make_unit(V):
-	
-	#Calculate length of V
-	length = sqrt(V[0]*V[0] + V[1]*V[1] + V[2]*V[2])
-	
-	#Return V as a unit vector
-	return (V[0]/length, V[1]/length, V[2]/length)
-	
-#Cross product of two vectors
-def cross(v1, v2):
-	
-	#Calculate the compoenents of the cross product
-	x = v1[1]*v2[2] - v1[2]*v2[1]
-	y = -v1[0]*v2[2] + v1[2]*v2[0]
-	z = v1[0]*v2[1] - v1[1]*v2[0]
-	
-	#Return the cross product
-	return (x,y,z)
-
-#Dot product of two vectors
-def dot(v1, v2):
-	
-	return (v1[0]*v2[0] + v1[1]*v2[1] + v1[2]*v2[2])
     		    
 #This function creates a CNT in Part module
 def cnt_part(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords):
