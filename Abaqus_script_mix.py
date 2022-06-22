@@ -1589,8 +1589,8 @@ jobName = 'CNT-'+str(N_CNTs)+'_GS-'+str(N_GSs)+'_EPS-'+str(elementsPerSide)+'_MR
 print_file = jobName + '.txt'
 pfile = open(print_file, "a")
 
-plog('There are ' + str(N_GSs) + ' GSs inside the RVE.')
-plog('There are ' + str(N_CNTs) + ' CNT sinside the RVE.')
+plog('There are ' + str(N_GSs) + ' GSs inside the RVE.\n')
+plog('There are ' + str(N_CNTs) + ' CNT sinside the RVE.\n')
 
 #Arrays to store GSs laying inside or partially outside the RVE
 indexOutside = []
