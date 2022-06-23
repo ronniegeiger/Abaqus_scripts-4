@@ -1763,5 +1763,5 @@ if createJob == 1:
         plog("Time for Job execution: {}\n".format(end-start))
 
 end = time.time()        
-print("Time for Abaqus model: {}\n".format(end-start0))
+plog("Time for Abaqus model: {}\n".format(end-start0))
 pfile.close()
