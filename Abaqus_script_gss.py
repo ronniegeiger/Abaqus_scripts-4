@@ -323,6 +323,13 @@ def Create_CuttingBox(model, partMatrix, partBox, P0, margin):
 
 #Create all parts and instances for GSs
 def Create_All_GSs(modelName, fillerMaterial, sheetSize, n_gs, P0, corner):
+    
+    #Variables to check progress
+    check_step = 0.1
+    frac_thres = 0.1
+    
+    #Get the starting time
+    start_gss = time.time()
 
     #Iterate over all GSs in the RVE
     for numPart in range(n_gs):
@@ -347,6 +354,21 @@ def Create_All_GSs(modelName, fillerMaterial, sheetSize, n_gs, P0, corner):
         
         #Assign material to GS
         Assign_Section(modelName, fillerMaterial, gs_part_str)
+        
+        #Calculate the fraction of generated GS parts
+        frac = float(numPart+1)/float(n_gs )
+        
+        #Check if more than the fraction threshold has been generated
+        if frac >= frac_thres:
+            
+            #Update the threshold
+            while frac >= frac_thres:
+                
+                #Increase the threshold by a step
+                frac_thres += check_step
+                
+            #Send message with percentage generated
+            plog('   GS parts and instances generated: {} % ({} secs)\n'.format( int( (frac_thres - check_step)*100 ), time.time()-start_gss))
     
 #Create GS
 def Create_GS(model, sheetsz, gnp_i, gs_part_str):

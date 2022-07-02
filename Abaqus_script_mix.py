@@ -566,6 +566,13 @@ def CNT_Parts_All(model, N_CNTs, cnt_struct, cnt_coords):
     
     #Number of accumulated points
     acc_pts = 0
+    
+    #Variables to check progress
+    check_step = 0.1
+    frac_thres = 0.1
+    
+    #Get the starting time
+    start_cnts = time.time()
 
     #Iterate over the number of CNTs
     for cnt_i in range(1, N_CNTs+1):
@@ -578,6 +585,21 @@ def CNT_Parts_All(model, N_CNTs, cnt_struct, cnt_coords):
         #The first point is given by the accumulated number of points
         #The last point is the accumulated number of points plus the number of points of CNTi minus 1
         CNT_Part(model, cnt_i, rad, acc_pts, acc_pts+N_p-1, cnt_coords)
+        
+        #Calculate the fraction of generated CNT parts
+        frac = float(cnt_i)/float(N_CNTs)
+        
+        #Check if more than the fraction threshold has been generated
+        if frac >= frac_thres:
+            
+            #Update the threshold
+            while frac >= frac_thres:
+                
+                #Increase the threshold by a step
+                frac_thres += check_step
+                
+            #Send message with percentage generated
+            plog('   CNT parts generated: {:d} % ({} secs)\n'.format( int( (frac_thres - check_step)*100 ), time.time()-start_cnts))
 
         #Increase the number of accumulated points
         acc_pts += N_p
@@ -685,6 +707,13 @@ def Generate_Sweep(model, P1, P2, cnt_rad, cnt_start, cnt_end, str_part):
 
 #Create all parts and instances for GSs
 def Create_All_GSs(modelName, fillerMaterial, sheetSize, n_gs, P0, corner):
+    
+    #Variables to check progress
+    check_step = 0.1
+    frac_thres = 0.1
+    
+    #Get the starting time
+    start_gss = time.time()
 
     #Iterate over all GSs in the RVE
     for numPart in range(n_gs):
@@ -709,6 +738,21 @@ def Create_All_GSs(modelName, fillerMaterial, sheetSize, n_gs, P0, corner):
         
         #Assign material to GS
         Assign_Section(modelName, fillerMaterial, gs_part_str)
+        
+        #Calculate the fraction of generated GS parts
+        frac = float(numPart+1)/float(n_gs )
+        
+        #Check if more than the fraction threshold has been generated
+        if frac >= frac_thres:
+            
+            #Update the threshold
+            while frac >= frac_thres:
+                
+                #Increase the threshold by a step
+                frac_thres += check_step
+                
+            #Send message with percentage generated
+            plog('   GS parts and instances generated: {} % ({} secs)\n'.format( int( (frac_thres - check_step)*100 ), time.time()-start_gss))
 
     #Hide the hollow box that was used to cut the GSs
     mdb.models[modelName].rootAssembly.features['CUTTER-1'].suppress()
@@ -1590,7 +1634,7 @@ print_file = jobName + '.txt'
 pfile = open(print_file, "a")
 
 plog('There are ' + str(N_GSs) + ' GSs inside the RVE.\n')
-plog('There are ' + str(N_CNTs) + ' CNT sinside the RVE.\n')
+plog('There are ' + str(N_CNTs) + ' CNTs inside the RVE.\n')
 
 #Arrays to store GSs laying inside or partially outside the RVE
 indexOutside = []

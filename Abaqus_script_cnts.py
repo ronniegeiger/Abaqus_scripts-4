@@ -343,6 +343,13 @@ def cnt_parts_all(modelName, N_CNTs, cnt_struct, cnt_coords):
 	#Number of accumulated points
 	acc_pts = 0
 	
+	#Variables to check progress
+	check_step = 0.1
+	frac_thres = 0.1
+	
+	#Get the starting time
+	start_cnts = time.time()
+	
 	#Iterate over the number of CNTs
 	for cnt_i in range(1, N_CNTs+1):
 		
@@ -354,6 +361,21 @@ def cnt_parts_all(modelName, N_CNTs, cnt_struct, cnt_coords):
 		#The first point is given by the accumulated number of points
 		#The last point is the accumulated number of points plus the number of points of CNTi minus 1
 		cnt_part(modelName, cnt_i, rad, acc_pts, acc_pts+N_p-1, cnt_coords)
+        
+		#Calculate the fraction of generated CNT parts
+		frac = float(cnt_i)/float(N_CNTs)
+		
+		#Check if more than the fraction threshold has been generated
+		if frac >= frac_thres:
+		
+			#Update the threshold
+			while frac >= frac_thres:
+			
+				#Increase the threshold by a step
+				frac_thres += check_step
+			
+			#Send message with percentage generated
+			plog('   CNT parts generated: {:d} % ({} secs)\n'.format( int( (frac_thres - check_step)*100 ), time.time()-start_cnts))
 		
 		#Increase the number of accumulated points
 		acc_pts += N_p
