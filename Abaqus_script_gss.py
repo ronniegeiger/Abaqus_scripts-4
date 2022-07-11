@@ -194,6 +194,7 @@ def plog(str):
     
     #Print to file
     pfile.write(str)
+    pfile.flush()
     
 ######################################---STRING FUNCTIONS---########################################
 
