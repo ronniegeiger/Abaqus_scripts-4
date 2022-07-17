@@ -112,7 +112,7 @@ matrixName = 'MATRIX'
 #RVE name
 rveName = 'RVE'
 #String for the host set (i.e., the matrix)
-strHost = 'host_Set'
+strHost = 'HOST_SET'
 #Define the mass density (kg/m3)
 matrixDensity = 900
 #Define the elastic modulus (GPa)
@@ -132,7 +132,7 @@ matrixSpecHeat = 75
 
 ### GSs
 #Define the name of the filler
-gsMaterial = 'Graphene'
+gsMaterial = 'GRAPHENE'
 #Define the mass density (kg/m3)
 gsDensity = 2200
 #Define the elastic modulus (GPa) - 1000
@@ -155,8 +155,8 @@ margin = 1.01*sqrt(lxMax*lxMax + lyMax*lyMax + tMax*tMax)
 
 ### CNTs
 #Define the name and section of the filler
-cntMaterial = 'CNT_mat'
-cntSection = 'CNT_sec'
+cntMaterial = 'CNT_MAT'
+cntSection = 'CNT_SEC'
 #Define the mass density (kg/m3)
 cntDensity = 2200
 #Define the elastic modulus (GPa)

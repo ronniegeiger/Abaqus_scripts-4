@@ -124,7 +124,7 @@ matrixSpecHeat = 75
 
 ###################### Nanofiller properties
 #Define the name of the filler
-fillerMaterial = 'Graphene'
+fillerMaterial = 'GRAPHENE'
 #Define the mass density (kg/m3)
 fillerDensity = 2200
 #Define the elastic modulus (GPa) - 1000

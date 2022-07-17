@@ -19,10 +19,6 @@ import csv
 import time
 import sys
 
-
-
-
-
 ######################################---GLOBAL VARIABLES---########################################
 
 #Files to read
@@ -37,10 +33,10 @@ elementsPerSide = 10
 meshRatio = 0.5
     
 #Define the string for the name of the matrix part
-matrixName = 'Matrix'
+matrixName = 'MATRIX'
 
 #String for the host set (i.e., the matrix)
-str_host = 'host_Set'
+str_host = 'HOST_SET'
 
 #Cosine of 45 degrees (PI/4)
 cos45 = 0.7071067812
@@ -53,8 +49,8 @@ disp = 0.5
 
 #Matrix properties
 #Define the name and section of the matrix
-matrixMaterial = 'Matrix_mat'
-matrixSection = 'Matrix_sec'
+matrixMaterial = 'MATRIX_MAT'
+matrixSection = 'MATRIX_SEC'
 #Define the mass density (kg/m3)
 matrixDensity = 905
 #Define the elastic modulus (MPa)
@@ -72,8 +68,8 @@ matrixElecConductivity = 200
 
 #CNT properties
 #Define the name and section of the filler
-cntMaterial = 'CNT_mat'
-cntSection = 'CNT_sec'
+cntMaterial = 'CNT_MAT'
+cntSection = 'CNT_SEC'
 #Define the mass density (kg/m3)
 cntDensity = 2200
 #Define the elastic modulus (MPa)
