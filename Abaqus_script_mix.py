@@ -786,8 +786,8 @@ def Create_Material(model, materialName, massDensity, elasModulus, poissonRatio,
     #Assign the material properties required by Abaqus
     mdb.models[model].Material(name=materialName)
     mdb.models[model].materials[materialName].Density(table=((massDensity, ), ))
-    mdb.models[model].materials[materialName].Elastic(table=((elasModulus*1e9, poissonRatio), ))
-    mdb.models[model].materials[materialName].Expansion(table=((expanCoefficient*1e-5, ), ))
+    mdb.models[model].materials[materialName].Elastic(table=((elasModulus, poissonRatio), ))
+    mdb.models[model].materials[materialName].Expansion(table=((expanCoefficient, ), ))
     mdb.models[model].materials[materialName].Conductivity(table=((thermConductivity, ), ))
     mdb.models[model].materials[materialName].SpecificHeat(table=((specHeat, ), ))
     mdb.models[model].materials[materialName].ElectricalConductivity(table=((elecConductivity, ), ))
