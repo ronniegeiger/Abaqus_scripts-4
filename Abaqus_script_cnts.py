@@ -19,6 +19,118 @@ import csv
 import time
 import sys
 
+
+
+
+
+######################################---GLOBAL VARIABLES---########################################
+
+#Files to read
+coord_file = 'cnt_coordinates.csv'
+struct_file = 'cnt_struct.csv'
+sample_file = 'sample_geom.csv'
+
+###################### Mesh flags and variables
+#Number of elements per side of the RVE
+elementsPerSide = 10
+#EmbeddedMesh/HostMesh ratio
+meshRatio = 0.5
+    
+#Define the string for the name of the matrix part
+matrixName = 'Matrix'
+
+#String for the host set (i.e., the matrix)
+str_host = 'host_Set'
+
+#Cosine of 45 degrees (PI/4)
+cos45 = 0.7071067812
+
+#"Zero" for comparing floating point numbers
+Zero = 1e-7
+
+#Displacement to be applied (microns)
+disp = 0.5
+
+#Matrix properties
+#Define the name and section of the matrix
+matrixMaterial = 'Matrix_mat'
+matrixSection = 'Matrix_sec'
+#Define the mass density (kg/m3)
+matrixDensity = 905
+#Define the elastic modulus (MPa)
+matrixModulus = 2000
+#Define the Poisson ratio
+matrixPoissonR = 0.42
+#Define de coefficient of thermal expansion (e-5 1/C)
+matrixExpCoeff = 10.5
+#Define the thermal conductivity (W/m*K)
+matrixThermConductivity = 0.19
+#Define the specific heat (J/mol*K)
+matrixSpecHeat = 75
+#Define the electrical conductivity (S/m)
+matrixElecConductivity = 200
+
+#CNT properties
+#Define the name and section of the filler
+cntMaterial = 'CNT_mat'
+cntSection = 'CNT_sec'
+#Define the mass density (kg/m3)
+cntDensity = 2200
+#Define the elastic modulus (MPa)
+cntModulus = 1e6
+#Define the Poisson ratio
+cntPoissonR = 0.165
+#Define de coefficient of thermal expansion (e-5 1/C)
+cntExpCoeff = 0.5
+#Define the thermal conductivity (W/m*K)
+cntThermConductivity = 3000
+#Define the specific heat (J/mol*K)
+cntSpecHeat = 7
+#Define the electrical conductivity (S/m)
+cntElecConductivity = 1e7
+#Maximum CNT radius
+cnt_rad_max = 0.03
+
+#Some names
+modelName = 'Model-1'
+stpName = 'Step-1'
+
+#Increment for step
+inicialIncrement=0.1
+
+###################### Job flags
+#Create job:
+# 0 = no
+# 1 = yes
+createJob = 1
+#Save input file
+# 0 = no
+# 1 = yes
+saveInputFile = 0
+#Perform data check on input file
+#If flag saveInputFile is set to 0, this flag is ignored
+# 0 = no
+# 1 = yes
+dataCheck = 0
+#Submit job: 
+# 0 = no
+# 1 = yes
+submitJob = 0
+
+#Displacement flags
+#These flags inidicate if displacement is applied in a direction
+# False = no displacement
+# True = displacement as indicated in the variable for displacement
+dispXflag = True
+dispYflag = False
+dispZflag= False
+dispX = 0.15
+dispY = 0.0
+dispZ = 0.0
+
+######################################---GLOBAL VARIABLES---########################################
+######################################----------END---------########################################
+
 ######################################---LOG FUNCTION---##########################################
 
 #This function is used to make message printing easier and simpler
@@ -915,118 +1027,6 @@ def create_all_sets_for_cnt_points(modelName, N_CNTs, cnt_struct, cnt_coords):
 	
 ######################################---ABAQUS FUNCTIONS---########################################
 ######################################----------END---------########################################
-
-
-
-######################################---GLOBAL VARIABLES---########################################
-
-#Files to read
-coord_file = 'cnt_coordinates.csv'
-struct_file = 'cnt_struct.csv'
-sample_file = 'sample_geom.csv'
-
-###################### Mesh flags and variables
-#Number of elements per side of the RVE
-elementsPerSide = 10
-#EmbeddedMesh/HostMesh ratio
-meshRatio = 0.5
-	
-#Define the string for the name of the matrix part
-matrixName = 'Matrix'
-
-#String for the host set (i.e., the matrix)
-str_host = 'host_Set'
-
-#Cosine of 45 degrees (PI/4)
-cos45 = 0.7071067812
-
-#"Zero" for comparing floating point numbers
-Zero = 1e-7
-
-#Displacement to be applied (microns)
-disp = 0.5
-
-#Matrix properties
-#Define the name and section of the matrix
-matrixMaterial = 'Matrix_mat'
-matrixSection = 'Matrix_sec'
-#Define the mass density (kg/m3)
-matrixDensity = 905
-#Define the elastic modulus (MPa)
-matrixModulus = 2000
-#Define the Poisson ratio
-matrixPoissonR = 0.42
-#Define de coefficient of thermal expansion (e-5 1/C)
-matrixExpCoeff = 10.5
-#Define the thermal conductivity (W/m*K)
-matrixThermConductivity = 0.19
-#Define the specific heat (J/mol*K)
-matrixSpecHeat = 75
-#Define the electrical conductivity (S/m)
-matrixElecConductivity = 200
-
-#CNT properties
-#Define the name and section of the filler
-cntMaterial = 'CNT_mat'
-cntSection = 'CNT_sec'
-#Define the mass density (kg/m3)
-cntDensity = 2200
-#Define the elastic modulus (MPa)
-cntModulus = 1e6
-#Define the Poisson ratio
-cntPoissonR = 0.165
-#Define de coefficient of thermal expansion (e-5 1/C)
-cntExpCoeff = 0.5
-#Define the thermal conductivity (W/m*K)
-cntThermConductivity = 3000
-#Define the specific heat (J/mol*K)
-cntSpecHeat = 7
-#Define the electrical conductivity (S/m)
-cntElecConductivity = 1e7
-#Maximum CNT radius
-cnt_rad_max = 0.03
-
-#Some names
-modelName = 'Model-1'
-stpName = 'Step-1'
-
-#Increment for step
-inicialIncrement=0.1
-
-###################### Job flags
-#Create job:
-# 0 = no
-# 1 = yes
-createJob = 1
-#Save input file
-# 0 = no
-# 1 = yes
-saveInputFile = 0
-#Perform data check on input file
-#If flag saveInputFile is set to 0, this flag is ignored
-# 0 = no
-# 1 = yes
-dataCheck = 0
-#Submit job: 
-# 0 = no
-# 1 = yes
-submitJob = 0
-
-#Displacement flags
-#These flags inidicate if displacement is applied in a direction
-# False = no displacement
-# True = displacement as indicated in the variable for displacement
-dispXflag = True
-dispYflag = False
-dispZflag= False
-dispX = 0.15
-dispY = 0.0
-dispZ = 0.0
-
-######################################---GLOBAL VARIABLES---########################################
-######################################----------END---------########################################
-
-
 
 ######################################---MAIN PROGRAM---########################################
 
