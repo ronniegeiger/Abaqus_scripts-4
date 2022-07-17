@@ -993,6 +993,25 @@ stpName = 'Step-1'
 #Increment for step
 inicialIncrement=0.1
 
+###################### Job flags
+#Create job:
+# 0 = no
+# 1 = yes
+createJob = 1
+#Save input file
+# 0 = no
+# 1 = yes
+saveInputFile = 0
+#Perform data check on input file
+#If flag saveInputFile is set to 0, this flag is ignored
+# 0 = no
+# 1 = yes
+dataCheck = 0
+#Submit job: 
+# 0 = no
+# 1 = yes
+submitJob = 0
+
 #Displacement flags
 #These flags inidicate if displacement is applied in a direction
 # False = no displacement
@@ -1125,24 +1144,43 @@ create_all_sets_for_cnt_points(modelName, N_CNTs, cnt_struct, cnt_coords)
 end = time.time()
 plog("Time for creating CNT point sets and elemnts to hide: {}\n".format(end-start))
 
-#Create and submit job using Abaqus default values
-mdb.Job(atTime=None, contactPrint=OFF, description='', echoPrint=OFF, 
-	explicitPrecision=SINGLE, getMemoryFromAnalysis=True, historyPrint=OFF, 
-	memory=90, memoryUnits=PERCENTAGE, model=modelName, modelPrint=OFF, 
-	multiprocessingMode=DEFAULT, name=jobName, nodalOutputPrecision=SINGLE, 
-	numCpus=1, numGPUs=0, queue=None, resultsFormat=ODB, scratch='', type=
-	ANALYSIS, userSubroutine='', waitHours=0, waitMinutes=0)
+if createJob == 1:
+    
+    #Create and submit job using Abaqus default values
+    mdb.Job(atTime=None, contactPrint=OFF, description='', echoPrint=OFF, 
+    	explicitPrecision=SINGLE, getMemoryFromAnalysis=True, historyPrint=OFF, 
+    	memory=90, memoryUnits=PERCENTAGE, model=modelName, modelPrint=OFF, 
+    	multiprocessingMode=DEFAULT, name=jobName, nodalOutputPrecision=SINGLE, 
+    	numCpus=1, numGPUs=0, queue=None, resultsFormat=ODB, scratch='', type=
+    	ANALYSIS, userSubroutine='', waitHours=0, waitMinutes=0)
+    
+    if saveInputFile == 1:
+        
+        #Save input file
+        start = time.time()
+        mdb.jobs[jobName].writeInput(consistencyChecking=OFF)
+        plog("Input file written: {} secs.\n".format(time.time()-start))
+        
+        if dataCheck == 1:
+        
+            #Perform data check
+            start = time.time()
+            mdb.jobs[jobName].submit(consistencyChecking=OFF, datacheckJob=True)
+            mdb.jobs[jobName].waitForCompletion()
+            plog("Data check on input file: {} secs.\n".format(time.time()-start))
 
-#Submit job and save time of submission
-start = time.time()
-mdb.jobs[jobName].submit(consistencyChecking=OFF)
+    if submitJob == 1:
 
-#Make the Python script to wait for the Abaqus job to finish
-#In this way the script can measure the execution time of the Abaqus simulation
-mdb.jobs[jobName].waitForCompletion()
+        #Submit job and save time of submission
+        start = time.time()
+        mdb.jobs[jobName].submit(consistencyChecking=OFF)
+        
+        #Make the Python script to wait for the Abaqus job to finish
+        #In this way the script can measure the execution time of the Abaqus simulation
+        mdb.jobs[jobName].waitForCompletion()
 
-#Calcualte job executionand simulation time
-end = time.time()
-plog("Time for Job execution: {}\n".format(end-start))
-plog("Time for Abaqus model: {}\n".format(end-start0))
+        #Calcualte job executionand simulation time
+        plog("Time for Job execution: {}\n".format(time.time()-start))
+        
+plog("Time for Abaqus model: {}\n".format(time.time()-start0))
 pfile.close()
