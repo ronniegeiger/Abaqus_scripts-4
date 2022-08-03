@@ -373,57 +373,69 @@ def generate_edges(modelName, cnt_start, cnt_end, cnt_coords, str_part):
 
 #This function generates the sweeped part
 def generate_sweep(modelName, P1, P2, cnt_rad, cnt_start, cnt_end, str_part):
-	#The sketching plane is perpendicular to the last segment
-	#The last segment has the points P1 and P2, so the z-axis of the sketch plane is 
-	#aligned to this last segment and goes in the direction from P1 to P2
-	#A transformation matrix is generated to align the z-axis to the last segment
-	R = rotation_matrix(P1, P2)
-	
-	#Create the sketching plane using the rotation matrix and the last point in the CNT
-	mdb.models[modelName].ConstrainedSketch(gridSpacing=0.001, name='__profile__', sheetSize=0.076, transform=(
-	    R[0][0], R[0][1], R[0][2],
-	    R[1][0], R[1][1], R[1][2], 
-	    R[2][0], 0.0, R[2][2], 
-	    P2[0], P2[1], P2[2]))
-	mdb.models[modelName].sketches['__profile__'].sketchOptions.setValues( decimalPlaces=5)
-	mdb.models[modelName].sketches['__profile__'].ConstructionLine(point1=(-0.038, 0.0), point2=(0.038, 0.0))
-	mdb.models[modelName].sketches['__profile__'].ConstructionLine(point1=(0.0,-0.038), point2=(0.0, 0.038))
-	mdb.models[modelName].parts[str_part].projectReferencesOntoSketch(
-		filter=COPLANAR_EDGES, sketch=mdb.models[modelName].sketches['__profile__'])
-	
-	#Calculate the radius multiplied by cos(PI/4)
-	new_rad = cnt_rad*cos45
-	
+    #The sketching plane is perpendicular to the last segment
+    #The last segment has the points P1 and P2, so the z-axis of the sketch plane is 
+    #aligned to this last segment and goes in the direction from P1 to P2
+    #A transformation matrix is generated to align the z-axis to the last segment
+    R = rotation_matrix(P1, P2)
+    
+    #Create the sketching plane using the rotation matrix and the last point in the CNT
+    mdb.models[modelName].ConstrainedSketch(gridSpacing=0.001, name='__profile__', sheetSize=0.076, transform=(
+        R[0][0], R[0][1], R[0][2],
+        R[1][0], R[1][1], R[1][2], 
+        R[2][0], 0.0, R[2][2], 
+        P2[0], P2[1], P2[2]))
+    mdb.models[modelName].sketches['__profile__'].sketchOptions.setValues( decimalPlaces=5)
+    mdb.models[modelName].sketches['__profile__'].ConstructionLine(point1=(-0.038, 0.0), point2=(0.038, 0.0))
+    mdb.models[modelName].sketches['__profile__'].ConstructionLine(point1=(0.0,-0.038), point2=(0.0, 0.038))
+    mdb.models[modelName].parts[str_part].projectReferencesOntoSketch(
+    	filter=COPLANAR_EDGES, sketch=mdb.models[modelName].sketches['__profile__'])
+    
+    #Calculate the radius multiplied by cos(PI/4)
+    new_rad = cnt_rad*cos45
+    
     #Construct a regular octagon
     #Vertex 1-2
-	mdb.models[modelName].sketches['__profile__'].Line(point1=(0.0, cnt_rad), point2=(new_rad, new_rad))
-	#Vertex 2-3
-	mdb.models[modelName].sketches['__profile__'].Line(point1=(new_rad, new_rad), point2=(cnt_rad, 0.0))
-	#Vertex 3-4
-	mdb.models[modelName].sketches['__profile__'].Line(point1=(cnt_rad, 0.0), point2=(new_rad, -new_rad))
-	#Vertex 4-5
-	mdb.models[modelName].sketches['__profile__'].Line(point1=(new_rad,-new_rad), point2=(0.0, -cnt_rad))
-	#Vertex 5-6
-	mdb.models[modelName].sketches['__profile__'].Line(point1=(0.0, -cnt_rad), point2=(-new_rad, -new_rad))
-	#Vertex 6-7
-	mdb.models[modelName].sketches['__profile__'].Line(point1=(-new_rad, -new_rad), point2=(-cnt_rad, 0.0))
-	#Vertex 7-8
-	mdb.models[modelName].sketches['__profile__'].Line(point1=(-cnt_rad, 0.0), point2=(-new_rad, new_rad))
-	#Vertex 8-1
-	mdb.models[modelName].sketches['__profile__'].Line(point1=(-new_rad, new_rad), point2=(0.0, cnt_rad))	
-	
-	#Select the last edge, which has number equal to (number edges-1)
-	#The number of edges is equal to (number of points-1)
-	#The number of points is (cnt_end-cnt_start+1)
-	#Then, the las edge has number ((cnt_end-cnt_start+1)-1-1)=(cnt_end-cnt_start-1)
-	mdb.models[modelName].parts[str_part].SolidSweep(
-		path=mdb.models[modelName].parts[str_part].edges, 
-		profile=mdb.models[modelName].sketches['__profile__'], 
-		sketchOrientation=RIGHT, 
-		sketchUpEdge=mdb.models[modelName].parts[str_part].edges[cnt_end-cnt_start-1])
-	    
-	#Delete sketch
-	del mdb.models[modelName].sketches['__profile__']
+    mdb.models[modelName].sketches['__profile__'].Line(point1=(0.0, cnt_rad), point2=(new_rad, new_rad))
+    #Vertex 2-3
+    mdb.models[modelName].sketches['__profile__'].Line(point1=(new_rad, new_rad), point2=(cnt_rad, 0.0))
+    #Vertex 3-4
+    mdb.models[modelName].sketches['__profile__'].Line(point1=(cnt_rad, 0.0), point2=(new_rad, -new_rad))
+    #Vertex 4-5
+    mdb.models[modelName].sketches['__profile__'].Line(point1=(new_rad,-new_rad), point2=(0.0, -cnt_rad))
+    #Vertex 5-6
+    mdb.models[modelName].sketches['__profile__'].Line(point1=(0.0, -cnt_rad), point2=(-new_rad, -new_rad))
+    #Vertex 6-7
+    mdb.models[modelName].sketches['__profile__'].Line(point1=(-new_rad, -new_rad), point2=(-cnt_rad, 0.0))
+    #Vertex 7-8
+    mdb.models[modelName].sketches['__profile__'].Line(point1=(-cnt_rad, 0.0), point2=(-new_rad, new_rad))
+    #Vertex 8-1
+    mdb.models[modelName].sketches['__profile__'].Line(point1=(-new_rad, new_rad), point2=(0.0, cnt_rad))	
+    
+    #Select the last edge, which has number equal to (number edges-1)
+    #The number of edges is equal to (number of points-1)
+    #The number of points is (cnt_end-cnt_start+1)
+    #Then, the las edge has number ((cnt_end-cnt_start+1)-1-1)=(cnt_end-cnt_start-1)
+    try:
+        mdb.models[modelName].parts[str_part].SolidSweep(
+            path=mdb.models[modelName].parts[str_part].edges, 
+            profile=mdb.models[modelName].sketches['__profile__'], 
+            sketchOrientation=RIGHT, 
+            sketchUpEdge=mdb.models[modelName].parts[str_part].edges[cnt_end-cnt_start-1])
+    except:
+        
+        plog('\nCould not generate sweep of part '+str_part+'\n')
+        plog('cnt_end= {} cnt_start={}\n'.format(cnt_end, cnt_start))
+        plog('Trying again with profileNormal=ON\n\n')
+        mdb.models[modelName].parts[str_part].SolidSweep(
+            path=mdb.models[modelName].parts[str_part].edges, 
+            profile=mdb.models[modelName].sketches['__profile__'], 
+            profileNormal=ON,
+            sketchOrientation=RIGHT, 
+            sketchUpEdge=mdb.models[modelName].parts[str_part].edges[cnt_end-cnt_start-1])
+        
+    #Delete sketch
+    del mdb.models[modelName].sketches['__profile__']
     		    
 #This function creates a CNT in Part module
 def cnt_part(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords):

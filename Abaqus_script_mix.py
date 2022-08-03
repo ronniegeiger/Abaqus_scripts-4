@@ -706,11 +706,19 @@ def Generate_Sweep(model, P1, P2, cnt_rad, cnt_start, cnt_end, str_part):
     #The number of edges is equal to (number of points-1)
     #The number of points is (cnt_end-cnt_start+1)
     #Then, the las edge has number ((cnt_end-cnt_start+1)-1-1)=(cnt_end-cnt_start-1)
-    mdb.models[model].parts[str_part].SolidSweep(
-        path=mdb.models[model].parts[str_part].edges, 
-        profile=mdb.models[model].sketches[profile_str], 
-        sketchOrientation=RIGHT, 
-        sketchUpEdge=mdb.models[model].parts[str_part].edges[cnt_end-cnt_start-1])
+    try:
+        mdb.models[model].parts[str_part].SolidSweep(
+            path=mdb.models[model].parts[str_part].edges, 
+            profile=mdb.models[model].sketches[profile_str], 
+            sketchOrientation=RIGHT, 
+            sketchUpEdge=mdb.models[model].parts[str_part].edges[cnt_end-cnt_start-1])
+    except:
+        mdb.models[model].parts[str_part].SolidSweep(
+            path=mdb.models[model].parts[str_part].edges, 
+            profile=mdb.models[model].sketches[profile_str], 
+            profileNormal=ON,
+            sketchOrientation=RIGHT, 
+            sketchUpEdge=mdb.models[model].parts[str_part].edges[cnt_end-cnt_start-1])
 
     #Delete sketch
     del mdb.models[model].sketches[profile_str]
