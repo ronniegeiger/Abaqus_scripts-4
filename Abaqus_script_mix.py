@@ -630,7 +630,7 @@ def CNT_Part(model, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords):
     Generate_Edges(model, cnt_start, cnt_end, cnt_coords, str_part)
 
     #Sweep an octagon along the edges
-    Generate_Sweep(model, cnt_coords[cnt_end-1], cnt_coords[cnt_end], cnt_rad, cnt_start, cnt_end, str_part)
+    Generate_Sweep(model, cnt_i, cnt_coords[cnt_end-1], cnt_coords[cnt_end], cnt_rad, cnt_start, cnt_end, str_part)
 
     #Delete the initial point as it is not used anymore
     del mdb.models[model].parts[str_part].features['RP']
@@ -658,16 +658,35 @@ def Generate_Edges(model, cnt_start, cnt_end, cnt_coords, str_part):
         #	mdb.models[model].parts[str_part].edges.getSequenceFromMask(('[#1 ]', ), ), name=str_wire)
 
 #This function generates the sweeped part
-def Generate_Sweep(model, P1, P2, cnt_rad, cnt_start, cnt_end, str_part):
+def Generate_Sweep(model, cnt_i, P1, P2, cnt_rad, cnt_start, cnt_end, str_part):
+
+    #Profile name is used several times, so create a variable to modify it easyly
+    #in case it is needed
+    profile_str = '__profile__'
+    
+    #Generate the octagon that will be swept through the CNT segments
+    Generate_Sweep_Profile(model, P1, P2, cnt_rad, str_part, profile_str)
+    
+    #Perform Sweep
+    try:
+        Sweep_Command_profileNormal_OFF(model, str_part, profile_str, cnt_start, cnt_end)
+    except:
+        
+        plog('\nCould not generate sweep of part '+str_part+'\n')
+        plog('cnt_end= {} cnt_start={}\n'.format(cnt_end, cnt_start))
+        plog('Trying again with profileNormal=ON\n\n')
+        Sweep_Command_profileNormal_ON(model, str_part, profile_str, cnt_start, cnt_end)
+
+    #Delete sketch
+    del mdb.models[model].sketches[profile_str]
+
+#This function generates the octagon that will be swet through the CNT segmetns
+def Generate_Sweep_Profile(model, P1, P2, cnt_rad, str_part, profile_str):
     #The sketching plane is perpendicular to the last segment
     #The last segment has the points P1 and P2, so the z-axis of the sketch plane is 
     #aligned to this last segment and goes in the direction from P1 to P2
     #A transformation matrix is generated to align the z-axis to the last segment
     R = rotation_matrix(P1, P2)
-
-    #Profile name is used several times, so create a variable to modify it easyly
-    #in case it is needed
-    profile_str = '__profile__'
 
     #Create the sketching plane using the rotation matrix and the last point in the CNT
     mdb.models[model].ConstrainedSketch(gridSpacing=0.001, name=profile_str, sheetSize=0.076, transform=(
@@ -702,26 +721,30 @@ def Generate_Sweep(model, P1, P2, cnt_rad, cnt_start, cnt_end, str_part):
     #Vertex 8-1
     mdb.models[model].sketches[profile_str].Line(point1=(-new_rad, new_rad), point2=(0.0, cnt_rad))
 
+def Sweep_Command_profileNormal_OFF(model, str_part, profile_str, cnt_start, cnt_end):
+
     #Select the last edge, which has number equal to (number edges-1)
     #The number of edges is equal to (number of points-1)
     #The number of points is (cnt_end-cnt_start+1)
     #Then, the las edge has number ((cnt_end-cnt_start+1)-1-1)=(cnt_end-cnt_start-1)
-    try:
-        mdb.models[model].parts[str_part].SolidSweep(
-            path=mdb.models[model].parts[str_part].edges, 
-            profile=mdb.models[model].sketches[profile_str], 
-            sketchOrientation=RIGHT, 
-            sketchUpEdge=mdb.models[model].parts[str_part].edges[cnt_end-cnt_start-1])
-    except:
-        mdb.models[model].parts[str_part].SolidSweep(
-            path=mdb.models[model].parts[str_part].edges, 
-            profile=mdb.models[model].sketches[profile_str], 
-            profileNormal=ON,
-            sketchOrientation=RIGHT, 
-            sketchUpEdge=mdb.models[model].parts[str_part].edges[cnt_end-cnt_start-1])
+    mdb.models[model].parts[str_part].SolidSweep(
+        path=mdb.models[model].parts[str_part].edges, 
+        profile=mdb.models[model].sketches[profile_str], 
+        sketchOrientation=RIGHT, 
+        sketchUpEdge=mdb.models[model].parts[str_part].edges[cnt_end-cnt_start-1])
 
-    #Delete sketch
-    del mdb.models[model].sketches[profile_str]
+def Sweep_Command_profileNormal_ON(model, str_part, profile_str, cnt_start, cnt_end):
+
+    #Select the last edge, which has number equal to (number edges-1)
+    #The number of edges is equal to (number of points-1)
+    #The number of points is (cnt_end-cnt_start+1)
+    #Then, the las edge has number ((cnt_end-cnt_start+1)-1-1)=(cnt_end-cnt_start-1)
+    mdb.models[model].parts[str_part].SolidSweep(
+        path=mdb.models[model].parts[str_part].edges, 
+        profile=mdb.models[model].sketches[profile_str],
+        profileNormal=ON, 
+        sketchOrientation=RIGHT, 
+        sketchUpEdge=mdb.models[model].parts[str_part].edges[cnt_end-cnt_start-1])
 
 #Create all parts and instances for GSs
 def Create_All_GSs(modelName, fillerMaterial, sheetSize, n_gs, P0, corner):
@@ -1267,30 +1290,58 @@ def Generate_CNT_Meshes(modelName, N_CNTs, cnt_struct, cnt_coords):
 
         #Get the string for the CNT part
         cnt_str = string_part('CNT', cnt_i)
+        
+        #Size of element
+        cnt_el = 2.0*cnt_struct[cnt_i][1]
 
         #Mesh cnt_i, use its radius as the element size
         #deviationFactor and minSizeFactor have the default values from Abaqus
         mdb.models[modelName].parts[cnt_str].seedPart(
-            deviationFactor=0.1, minSizeFactor=0.1, size=cnt_struct[cnt_i][1])
+            deviationFactor=0.1, minSizeFactor=0.1, size=cnt_el)
         mdb.models[modelName].parts[cnt_str].generateMesh()
 
-        #Get the number of nodes generated
-        num_nodes = mdb.models[modelName].parts[cnt_str].getMeshStats((mdb.models[modelName].parts[cnt_str].cells,)).numNodes
-        #print(cnt_str,' nodes=', num_nodes)
-
-        #Check the number of nodes in the mesh
-        if num_nodes == 0:
-
-            #The CNT was not meshed
-            #Cut the CNT cell where needed
-            Partition_CNT_Cell(modelName, cnt_rad, acc_pts, acc_pts+N_p-1, cnt_coords, cnt_str)
-
-            #Try to mesh again
-            mdb.models[modelName].parts[cnt_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=cnt_struct[cnt_i][1])
-            mdb.models[modelName].parts[cnt_str].generateMesh()
+        #Check if the CNT needs to be remeshed
+        Remesh_CNT_When_Needed(modelName, cnt_str, cnt_i, cnt_rad, acc_pts, N_p, cnt_el, cnt_coords)
 
         #Increase the number of accumulated points
         acc_pts += N_p
+
+#This function checks for the cases where a CNT needs to be remeshed
+def Remesh_CNT_When_Needed(modelName, cnt_str, cnt_i, cnt_rad, acc_pts, N_p, cnt_el, cnt_coords):
+
+    #Get the number of nodes generated
+    num_nodes = mdb.models[modelName].parts[cnt_str].getMeshStats((mdb.models[modelName].parts[cnt_str].cells,)).numNodes
+    #Get the number of hexahedral elements generated
+    num_els = mdb.models[modelName].parts[cnt_str].getMeshStats((mdb.models[modelName].parts[cnt_str].cells,)).numHexElems
+    #Calculate the minimum theoretical number of elements
+    #The theoretical number of elements is 4(N_p-1), since there are 4 elements for each CNT segment (a CNT has N_p-1 segments)
+    theor_els = 4*(N_p-1)
+    
+    #Check the number of nodes in the mesh
+    if num_nodes == 0:
+
+        #The CNT was not meshed
+        #Cut the CNT cell where needed
+        Partition_CNT_Cell(modelName, cnt_rad, acc_pts, acc_pts+N_p-1, cnt_coords, cnt_str)
+
+        #Try to mesh again
+        mdb.models[modelName].parts[cnt_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=cnt_el)
+        mdb.models[modelName].parts[cnt_str].generateMesh()
+        
+    #Check if number of elements is within limits, if not within limits probably ppart of the CNT is a beam section
+    #This beacause some CNT segments are longer close to the boundaries because a short segment was merged with a regular segment
+    #In such cases Abaqus creates 8 elements in that segment instead of only 4
+    #Thus, if a CNT is cut by the boundary by one side it may have 4 elements more and if it is cut twice it could have 
+    #up to 8 elements more
+    elif num_els < theor_els:
+        
+        #Delete part and re-do it with the flag for profile normal constant
+        plog('{} nodes={} num_els={} 4*(N_p-1)={}\n'.format(cnt_str,num_nodes,num_els,theor_els))
+        Delete_And_CreateAgain(modelName, cnt_str, cnt_i, cnt_rad, acc_pts, acc_pts+N_p-1, cnt_coords)
+
+        #Try to mesh again
+        mdb.models[modelName].parts[cnt_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=cnt_el)
+        mdb.models[modelName].parts[cnt_str].generateMesh()
 
 #This function cuts a CNT cell when it could not be meshed
 def Partition_CNT_Cell(modelName, cnt_rad, cnt_start, cnt_end, cnt_coords, str_part):
@@ -1369,11 +1420,84 @@ def Partition_CNT_Cell(modelName, cnt_rad, cnt_start, cnt_end, cnt_coords, str_p
             #if i == cnt_start+1:
             #	for j in range(len(octagon)):
             #		mdb.models[modelName].parts[str_part].DatumPointByCoordinate(coords=octagon[j].pointOn[0])
+            
+            try:
+                #Use the octagon edges in the tuple to partition the cell
+                mdb.models[modelName].parts[str_part].PartitionCellByPatchNEdges(
+                    cell=mdb.models[modelName].parts[str_part].cells.findAt(P3, ),
+                    edges=octagon_edges)
+            except:
+                plog('Could not cut part {} on point {}, cnt_start={} cnt_end={}\n'.format(str_part, i-cnt_start-1, cnt_start, cnt_end))
 
-            #Use the octagon edges in the tuple to partition the cell
-            mdb.models[modelName].parts[str_part].PartitionCellByPatchNEdges(
-                cell=mdb.models[modelName].parts[str_part].cells.findAt(P3, ),
-                edges=octagon_edges)
+#This function deletes a CNt that could not be meshed beacause part of it was generated as a shell element
+def Delete_And_CreateAgain(modelName, str_part, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords):
+    
+    #Delete old embedded element constraint
+    del mdb.models[modelName].constraints['EE-CNT-%d' %(cnt_i)]
+
+    #Generate name of set for embedded element constraint for cnt_i
+    set_str = ee_string('CNT', cnt_i)
+
+    #Delete old set for cnt_i
+    del mdb.models[modelName].rootAssembly.sets[set_str]
+
+    #Generate name for CNT instance
+    str_inst = string_instance('CNT', cnt_i)
+    
+    #Delete old instance
+    del mdb.models[modelName].rootAssembly.features[str_inst]
+    
+    #Delete initial sweep
+    del mdb.models[modelName].parts[str_part].features['Solid sweep-1']
+    
+    plog('Sweep feature of part '+str_part+' and instance deleted\n')
+    plog('cnt_end= {} cnt_start={}\n'.format(cnt_end, cnt_start))
+
+    #Create sweep for CNT again
+
+    #Profile name 
+    profile_str = '__profile__'
+    
+    #Generate the octagon that will be swept through the CNT segments
+    Generate_Sweep_Profile(modelName, cnt_coords[cnt_end-1], cnt_coords[cnt_end], cnt_rad, str_part, profile_str)
+    
+    #Perform Sweep  
+    Sweep_Command_profileNormal_ON(modelName, str_part, profile_str, cnt_start, cnt_end)
+
+    #Delete sketch
+    del mdb.models[modelName].sketches[profile_str]
+
+    #Assign the CNT section to cnt_i
+    mdb.models[modelName].parts[str_part].SectionAssignment(
+        offset=0.0, 
+        offsetField='', 
+        offsetType=MIDDLE_SURFACE, 
+        region=Region(cells=mdb.models[modelName].parts[str_part].cells),
+        sectionName=cntMaterial, 
+        thicknessAssignment=FROM_SECTION)
+
+    #Generate CNT instance
+    mdb.models[modelName].rootAssembly.Instance(
+        dependent=ON, 
+        name=str_inst,
+        part=mdb.models[modelName].parts[str_part])
+
+    #Create new set for cnt_i
+    mdb.models[modelName].rootAssembly.Set(
+        cells=mdb.models[modelName].rootAssembly.instances[str_inst].cells,
+        name=set_str)
+    
+    #Create new embedded element constraint
+    mdb.models[modelName].EmbeddedRegion(
+        absoluteTolerance=0.0, 
+        fractionalTolerance=0.05, 
+        toleranceMethod=BOTH, 
+        weightFactorTolerance=1e-06,
+        embeddedRegion=mdb.models[modelName].rootAssembly.sets[set_str],
+        hostRegion=mdb.models[modelName].rootAssembly.sets[strHost],
+        name='EE-CNT-%d' %(cnt_i))
+    
+    plog('New part '+str_part+' and instance done\n')
 
 #Mesh the matrix
 def Generate_Matrix_Mesh(modelName, matrixName, selectedElementCode):

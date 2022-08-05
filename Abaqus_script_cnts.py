@@ -372,7 +372,30 @@ def generate_edges(modelName, cnt_start, cnt_end, cnt_coords, str_part):
     	#	mdb.models[modelName].parts[str_part].edges.getSequenceFromMask(('[#1 ]', ), ), name=str_wire)
 
 #This function generates the sweeped part
-def generate_sweep(modelName, P1, P2, cnt_rad, cnt_start, cnt_end, str_part):
+def Generate_Sweep(model, cnt_i, P1, P2, cnt_rad, cnt_start, cnt_end, str_part):
+    
+    #Profile name is used several times, so create a variable to modify it easyly
+    #in case it is needed
+    profile_str = '__profile__'
+    
+    #Generate the octagon that will be swept through the CNT segments
+    Generate_Sweep_Profile(model, P1, P2, cnt_rad, str_part, profile_str)
+    
+    #Perform Sweep
+    try:
+        Sweep_Command_profileNormal_OFF(model, str_part, profile_str, cnt_start, cnt_end)
+    except:
+        
+        plog('\nCould not generate sweep of part '+str_part+'\n')
+        plog('cnt_end= {} cnt_start={}\n'.format(cnt_end, cnt_start))
+        plog('Trying again with profileNormal=ON\n\n')
+        Sweep_Command_profileNormal_ON(model, str_part, profile_str, cnt_start, cnt_end)
+    
+    #Delete sketch
+    del mdb.models[model].sketches[profile_str]
+
+#This function generates the octagon that will be swet through the CNT segmetns
+def Generate_Sweep_Profile(model, P1, P2, cnt_rad, str_part, profile_str):
     #The sketching plane is perpendicular to the last segment
     #The last segment has the points P1 and P2, so the z-axis of the sketch plane is 
     #aligned to this last segment and goes in the direction from P1 to P2
@@ -380,83 +403,83 @@ def generate_sweep(modelName, P1, P2, cnt_rad, cnt_start, cnt_end, str_part):
     R = rotation_matrix(P1, P2)
     
     #Create the sketching plane using the rotation matrix and the last point in the CNT
-    mdb.models[modelName].ConstrainedSketch(gridSpacing=0.001, name='__profile__', sheetSize=0.076, transform=(
+    mdb.models[model].ConstrainedSketch(gridSpacing=0.001, name=profile_str, sheetSize=0.076, transform=(
         R[0][0], R[0][1], R[0][2],
         R[1][0], R[1][1], R[1][2], 
         R[2][0], 0.0, R[2][2], 
         P2[0], P2[1], P2[2]))
-    mdb.models[modelName].sketches['__profile__'].sketchOptions.setValues( decimalPlaces=5)
-    mdb.models[modelName].sketches['__profile__'].ConstructionLine(point1=(-0.038, 0.0), point2=(0.038, 0.0))
-    mdb.models[modelName].sketches['__profile__'].ConstructionLine(point1=(0.0,-0.038), point2=(0.0, 0.038))
-    mdb.models[modelName].parts[str_part].projectReferencesOntoSketch(
-    	filter=COPLANAR_EDGES, sketch=mdb.models[modelName].sketches['__profile__'])
+    mdb.models[model].sketches[profile_str].sketchOptions.setValues( decimalPlaces=5)
+    mdb.models[model].sketches[profile_str].ConstructionLine(point1=(-0.038, 0.0), point2=(0.038, 0.0))
+    mdb.models[model].sketches[profile_str].ConstructionLine(point1=(0.0,-0.038), point2=(0.0, 0.038))
+    mdb.models[model].parts[str_part].projectReferencesOntoSketch(
+        filter=COPLANAR_EDGES, sketch=mdb.models[model].sketches[profile_str])
     
     #Calculate the radius multiplied by cos(PI/4)
     new_rad = cnt_rad*cos45
     
     #Construct a regular octagon
     #Vertex 1-2
-    mdb.models[modelName].sketches['__profile__'].Line(point1=(0.0, cnt_rad), point2=(new_rad, new_rad))
+    mdb.models[model].sketches[profile_str].Line(point1=(0.0, cnt_rad), point2=(new_rad, new_rad))
     #Vertex 2-3
-    mdb.models[modelName].sketches['__profile__'].Line(point1=(new_rad, new_rad), point2=(cnt_rad, 0.0))
+    mdb.models[model].sketches[profile_str].Line(point1=(new_rad, new_rad), point2=(cnt_rad, 0.0))
     #Vertex 3-4
-    mdb.models[modelName].sketches['__profile__'].Line(point1=(cnt_rad, 0.0), point2=(new_rad, -new_rad))
+    mdb.models[model].sketches[profile_str].Line(point1=(cnt_rad, 0.0), point2=(new_rad, -new_rad))
     #Vertex 4-5
-    mdb.models[modelName].sketches['__profile__'].Line(point1=(new_rad,-new_rad), point2=(0.0, -cnt_rad))
+    mdb.models[model].sketches[profile_str].Line(point1=(new_rad,-new_rad), point2=(0.0, -cnt_rad))
     #Vertex 5-6
-    mdb.models[modelName].sketches['__profile__'].Line(point1=(0.0, -cnt_rad), point2=(-new_rad, -new_rad))
+    mdb.models[model].sketches[profile_str].Line(point1=(0.0, -cnt_rad), point2=(-new_rad, -new_rad))
     #Vertex 6-7
-    mdb.models[modelName].sketches['__profile__'].Line(point1=(-new_rad, -new_rad), point2=(-cnt_rad, 0.0))
+    mdb.models[model].sketches[profile_str].Line(point1=(-new_rad, -new_rad), point2=(-cnt_rad, 0.0))
     #Vertex 7-8
-    mdb.models[modelName].sketches['__profile__'].Line(point1=(-cnt_rad, 0.0), point2=(-new_rad, new_rad))
+    mdb.models[model].sketches[profile_str].Line(point1=(-cnt_rad, 0.0), point2=(-new_rad, new_rad))
     #Vertex 8-1
-    mdb.models[modelName].sketches['__profile__'].Line(point1=(-new_rad, new_rad), point2=(0.0, cnt_rad))	
+    mdb.models[model].sketches[profile_str].Line(point1=(-new_rad, new_rad), point2=(0.0, cnt_rad))
+
+def Sweep_Command_profileNormal_OFF(model, str_part, profile_str, cnt_start, cnt_end):
     
     #Select the last edge, which has number equal to (number edges-1)
     #The number of edges is equal to (number of points-1)
     #The number of points is (cnt_end-cnt_start+1)
     #Then, the las edge has number ((cnt_end-cnt_start+1)-1-1)=(cnt_end-cnt_start-1)
-    try:
-        mdb.models[modelName].parts[str_part].SolidSweep(
-            path=mdb.models[modelName].parts[str_part].edges, 
-            profile=mdb.models[modelName].sketches['__profile__'], 
-            sketchOrientation=RIGHT, 
-            sketchUpEdge=mdb.models[modelName].parts[str_part].edges[cnt_end-cnt_start-1])
-    except:
+    mdb.models[model].parts[str_part].SolidSweep(
+        path=mdb.models[model].parts[str_part].edges, 
+        profile=mdb.models[model].sketches[profile_str], 
+        sketchOrientation=RIGHT, 
+        sketchUpEdge=mdb.models[model].parts[str_part].edges[cnt_end-cnt_start-1])
+
+def Sweep_Command_profileNormal_ON(model, str_part, profile_str, cnt_start, cnt_end):
+    
+    #Select the last edge, which has number equal to (number edges-1)
+    #The number of edges is equal to (number of points-1)
+    #The number of points is (cnt_end-cnt_start+1)
+    #Then, the las edge has number ((cnt_end-cnt_start+1)-1-1)=(cnt_end-cnt_start-1)
+    mdb.models[model].parts[str_part].SolidSweep(
+        path=mdb.models[model].parts[str_part].edges, 
+        profile=mdb.models[model].sketches[profile_str],
+        profileNormal=ON, 
+        sketchOrientation=RIGHT, 
+        sketchUpEdge=mdb.models[model].parts[str_part].edges[cnt_end-cnt_start-1])
         
-        plog('\nCould not generate sweep of part '+str_part+'\n')
-        plog('cnt_end= {} cnt_start={}\n'.format(cnt_end, cnt_start))
-        plog('Trying again with profileNormal=ON\n\n')
-        mdb.models[modelName].parts[str_part].SolidSweep(
-            path=mdb.models[modelName].parts[str_part].edges, 
-            profile=mdb.models[modelName].sketches['__profile__'], 
-            profileNormal=ON,
-            sketchOrientation=RIGHT, 
-            sketchUpEdge=mdb.models[modelName].parts[str_part].edges[cnt_end-cnt_start-1])
-        
-    #Delete sketch
-    del mdb.models[modelName].sketches['__profile__']
-    		    
 #This function creates a CNT in Part module
 def cnt_part(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords):
-	
-	#Get the string for the CNT
-	str_part = cnt_string_part(cnt_i)
-	
-	#Create a point to be able to generate the edges that will make the CNT
-	mdb.models[modelName].Part(dimensionality=THREE_D, name=str_part, type=DEFORMABLE_BODY)
-	mdb.models[modelName].parts[str_part].ReferencePoint(point=(0.0, 0.0, 0.0))
-	
-	#print("cnt_start=",cnt_start," cnt_end=",cnt_end)
-	
-	#Create edges, iterate over all points of the CNT
-	generate_edges(modelName, cnt_start, cnt_end, cnt_coords, str_part)
-	
-	#Sweep an octagon along the edges
-	generate_sweep(modelName, cnt_coords[cnt_end-1], cnt_coords[cnt_end], cnt_rad, cnt_start, cnt_end, str_part)
-	
-	#Delete the initial point as it is not used anymore
-	del mdb.models[modelName].parts[str_part].features['RP']
+    
+    #Get the string for the CNT
+    str_part = cnt_string_part(cnt_i)
+    
+    #Create a point to be able to generate the edges that will make the CNT
+    mdb.models[modelName].Part(dimensionality=THREE_D, name=str_part, type=DEFORMABLE_BODY)
+    mdb.models[modelName].parts[str_part].ReferencePoint(point=(0.0, 0.0, 0.0))
+    
+    #print("cnt_start=",cnt_start," cnt_end=",cnt_end)
+    
+    #Create edges, iterate over all points of the CNT
+    generate_edges(modelName, cnt_start, cnt_end, cnt_coords, str_part)
+    
+    #Sweep an octagon along the edges
+    Generate_Sweep(modelName, cnt_i, cnt_coords[cnt_end-1], cnt_coords[cnt_end], cnt_rad, cnt_start, cnt_end, str_part)
+    
+    #Delete the initial point as it is not used anymore
+    del mdb.models[modelName].parts[str_part].features['RP']
 	
 #This function generates all CNT parts
 def cnt_parts_all(modelName, N_CNTs, cnt_struct, cnt_coords):
@@ -680,128 +703,228 @@ def generate_matrix_mesh(modelName, str_matrix, Lxyz, matrixMeshSize):
 	mdb.models[modelName].parts[str_matrix].generateMesh()
 
 #This function generates the mesh for the CNTs
-def generate_cnt_meshes(modelName, N_CNTs, cnt_struct, cnt_coords):
-	
-	#Number of accumulated points
-	acc_pts = 0
-	
-	#Go through every CNT to mesh each of them
-	for cnt_i in range(1, N_CNTs+1):
-		
-		#Number of points in CNTi and its radius
-		N_p = int(cnt_struct[cnt_i][0])
-		cnt_rad = cnt_struct[cnt_i][1]
-	
-		#Get the string for the CNT part
-		cnt_str = cnt_string_part(cnt_i)
-		
-		#Mesh cnt_i, use its radius as the element size
-		#deviationFactor and minSizeFactor have the default values from Abaqus
-		mdb.models[modelName].parts[cnt_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=cnt_struct[cnt_i][1])
-		mdb.models[modelName].parts[cnt_str].generateMesh()
-		
-		#Get the number of nodes generated
-		num_nodes = mdb.models[modelName].parts[cnt_str].getMeshStats((mdb.models[modelName].parts[cnt_str].cells,)).numNodes
-		#print(cnt_str,' nodes=', num_nodes)
-		
-		#Check the number of nodes in the mesh
-		if num_nodes == 0:
-			
-			#The CNT was not meshed
-			#Cut the CNT cell and mesh again
-			partition_cnt_cell(modelName, cnt_rad, acc_pts, acc_pts+N_p-1, cnt_coords, cnt_str)
-			
-			#Try to mesh again
-			mdb.models[modelName].parts[cnt_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=cnt_struct[cnt_i][1])
-			mdb.models[modelName].parts[cnt_str].generateMesh()
-			
-		#Increase the number of accumulated points
-		acc_pts += N_p
-		
-	#This seems to be required by Abaqus
-	mdb.models[modelName].rootAssembly.regenerate()
-	
-#This function cuts a CNT cell when it could not be meshed
-def partition_cnt_cell(modelName, cnt_rad, cnt_start, cnt_end, cnt_coords, str_part):
-	
-	#Half of the cylinder height
-	hc = cnt_rad*0.1
-	
-	#Iterate over the CNT points, starting on the secont point and finishing on the previous to last point
-	for i in range(cnt_start+1, cnt_end):
-		
-		#Get the points of the CNT segments that share point i
-		#End point of first CNT segment
-		P1 = cnt_coords[i-1]
-		#Point shared by both CNT segments
-		P2 = cnt_coords[i]
-		#End point of second CNT segment
-		P3 = cnt_coords[i+1]
-		
-		#Get the unit vector of first CNT segment
-		v1 = get_unit_vector(P2, P1)
-		
-		#Get the unit vector of second CNT segment
-		v2 = get_unit_vector(P2, P3)
-		
-		#Calculate the dot product of v1 and v2 to obtain the cosine of the angle between them
-		#Need the dot product with negative sign
-		cosV = - dot(v1,v2)
-		
-		#Check if need to cut the cell at point P2
-		if cosV < cos45:
-			#The CNT cell needs to be cut at P2
-			
-			#Get a unit vector that goes along the plane that bisects the angle 
-			#between v1 and v2
-			vm = make_unit((v1[0]+v2[0], v1[1]+v2[1], v1[2]+v2[2]))
-			#print('vm')
-			
-			#Vector normal to v1, v2, and vm (all three lie on the same plane)
-			N3 = cross(v2, v1)
-		
-			#Get the normal for the plane at the midpoint
-			#Since both v1 and vm are unit vectors, N is also a unit vector
-			N = cross(N3, vm)
-			
-			#Calculate a displacement to set the points of the cylinder
-			disp = (N[0]*hc, N[1]*hc, N[2]*hc)
-			
-			#Calculate first point of Cylinder height
-			C1 = (P2[0]+disp[0], P2[1]+disp[1], P2[2]+disp[2])
-			
-			#Calculate second point of Cylinder height
-			C2 = (P2[0]-disp[0], P2[1]-disp[1], P2[2]-disp[2])
-			
-			#Calculate vector along the plane
-			#Since both v1 and vm are unit vectors, S is also a unit vector
-			S = cross(N3, v1)
+def Generate_CNT_Meshes(modelName, N_CNTs, cnt_struct, cnt_coords):
 
-			#Calculate the radius of the cylinder that will be used to select the points needed to cut the cell
-			#Also increase the radius 0.5% so that vertices are not missed die to numerical erros
-			rad_cyl = cnt_rad*1.005/(-dot(vm, S))
-			#print('rad_cyl=',rad_cyl)
-			
-			#Select the edges enclosed by the cylinder with centerpoints C1 and C2 and radius rad_cyl
-			octagon = mdb.models[modelName].parts[str_part].edges.getByBoundingCylinder(center1=C1, center2=C2, radius=rad_cyl)
-			#print('i=',i-cnt_start-1," octagon.len=",len(octagon))
-			#print(octagon)
-			#print(octagon[0])
-			#print(octagon[1])
-			#For some reason, the selected edges are not a tuple
-			#Thus, create a tuple with the edges of the octagon
-			octagon_edges = (octagon[0], octagon[1], octagon[2], octagon[3], octagon[4], octagon[5], octagon[6], octagon[7])
-			
-			#Datum points for testing
-			#if i == cnt_start+1:
-			#	for j in range(len(octagon)):
-			#		mdb.models[modelName].parts[str_part].DatumPointByCoordinate(coords=octagon[j].pointOn[0])
-			
-			#Use the octagon edges in the tuple to partition the cell
-			mdb.models[modelName].parts[str_part].PartitionCellByPatchNEdges(
-				cell=mdb.models[modelName].parts[str_part].cells.findAt(P3, ),
-				edges=octagon_edges
-			)
+    #Number of accumulated points
+    acc_pts = 0
+
+    #Go through every CNT to mesh each of them
+    for cnt_i in range(1, N_CNTs+1):
+
+        #Number of points in CNTi and its radius
+        N_p = int(cnt_struct[cnt_i][0])
+        cnt_rad = cnt_struct[cnt_i][1]
+
+        #Get the string for the CNT part
+        cnt_str = cnt_string_part(cnt_i)
+        
+        #Size of element
+        cnt_el = 2.0*cnt_struct[cnt_i][1]
+
+        #Mesh cnt_i, use its radius as the element size
+        #deviationFactor and minSizeFactor have the default values from Abaqus
+        mdb.models[modelName].parts[cnt_str].seedPart(
+            deviationFactor=0.1, minSizeFactor=0.1, size=cnt_el)
+        mdb.models[modelName].parts[cnt_str].generateMesh()
+
+        #Check if the CNT needs to be remeshed
+        Remesh_CNT_When_Needed(modelName, cnt_str, cnt_i, cnt_rad, acc_pts, N_p, cnt_el, cnt_coords)
+
+        #Increase the number of accumulated points
+        acc_pts += N_p
+
+#This function checks for the cases where a CNT needs to be remeshed
+def Remesh_CNT_When_Needed(modelName, cnt_str, cnt_i, cnt_rad, acc_pts, N_p, cnt_el, cnt_coords):
+
+    #Get the number of nodes generated
+    num_nodes = mdb.models[modelName].parts[cnt_str].getMeshStats((mdb.models[modelName].parts[cnt_str].cells,)).numNodes
+    #Get the number of hexahedral elements generated
+    num_els = mdb.models[modelName].parts[cnt_str].getMeshStats((mdb.models[modelName].parts[cnt_str].cells,)).numHexElems
+    #Calculate the minimum theoretical number of elements
+    #The theoretical number of elements is 4(N_p-1), since there are 4 elements for each CNT segment (a CNT has N_p-1 segments)
+    theor_els = 4*(N_p-1)
+    
+    #Check the number of nodes in the mesh
+    if num_nodes == 0:
+
+        #The CNT was not meshed
+        #Cut the CNT cell where needed
+        Partition_CNT_Cell(modelName, cnt_rad, acc_pts, acc_pts+N_p-1, cnt_coords, cnt_str)
+
+        #Try to mesh again
+        mdb.models[modelName].parts[cnt_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=cnt_el)
+        mdb.models[modelName].parts[cnt_str].generateMesh()
+        
+    #Check if number of elements is within limits, if not within limits probably ppart of the CNT is a beam section
+    #This beacause some CNT segments are longer close to the boundaries because a short segment was merged with a regular segment
+    #In such cases Abaqus creates 8 elements in that segment instead of only 4
+    #Thus, if a CNT is cut by the boundary by one side it may have 4 elements more and if it is cut twice it could have 
+    #up to 8 elements more
+    elif num_els < theor_els:
+        
+        #Delete part and re-do it with the flag for profile normal constant
+        plog('{} nodes={} num_els={} 4*(N_p-1)={}\n'.format(cnt_str,num_nodes,num_els,theor_els))
+        Delete_And_CreateAgain(modelName, cnt_str, cnt_i, cnt_rad, acc_pts, acc_pts+N_p-1, cnt_coords)
+
+        #Try to mesh again
+        mdb.models[modelName].parts[cnt_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=cnt_el)
+        mdb.models[modelName].parts[cnt_str].generateMesh()
+
+#This function cuts a CNT cell when it could not be meshed
+def Partition_CNT_Cell(modelName, cnt_rad, cnt_start, cnt_end, cnt_coords, str_part):
+
+    #Half of the cylinder height
+    hc = cnt_rad*0.1
+
+    #Iterate over the CNT points, starting on the secont point and finishing on the previous to last point
+    for i in range(cnt_start+1, cnt_end): 
+
+        #print('i=',i-cnt_start,' cells=', len(mdb.models[modelName].parts[str_part].cells))
+
+        #Get the points of the CNT segments that share point i
+        #End point of first CNT segment
+        P1 = cnt_coords[i-1]
+        #Point shared by both CNT segments
+        P2 = cnt_coords[i]
+        #End point of second CNT segment
+        P3 = cnt_coords[i+1]
+
+        #Get the unit vector of first CNT segment
+        v1 = get_unit_vector(P2, P1)
+
+        #Get the unit vector of second CNT segment
+        v2 = get_unit_vector(P2, P3)
+
+        #Calculate the dot product of v1 and v2 to obtain the cosine of the angle between them
+        #Need the dot product with negative sign
+        cosV = - dot(v1,v2)
+
+        #Check if need to cut the cell at point P2
+        if cosV < cos45:
+            #The CNT cell needs to be cut at P2
+
+            #Get a unit vector that goes along the plane that bisects the angle 
+            #between v1 and v2
+            vm = make_unit((v1[0]+v2[0], v1[1]+v2[1], v1[2]+v2[2]))
+            #print('vm')
+
+            #Vector normal to v1, v2, and vm (all three lie on the same plane)
+            N3 = cross(v2, v1)
+
+            #Get the normal for the plane at the midpoint
+            #Since both v1 and vm are unit vectors, N is also a unit vector
+            N = cross(N3, vm)
+
+            #Calculate a displacement to set the points of the cylinder
+            disp = (N[0]*hc, N[1]*hc, N[2]*hc)
+
+            #Calculate first point of Cylinder height
+            C1 = (P2[0]+disp[0], P2[1]+disp[1], P2[2]+disp[2])
+
+            #Calculate second point of Cylinder height
+            C2 = (P2[0]-disp[0], P2[1]-disp[1], P2[2]-disp[2])
+
+            #Calculate vector along the plane
+            #Since both v1 and vm are unit vectors, S is also a unit vector
+            S = cross(N3, v1)
+
+            #Calculate the radius of the cylinder that will be used to select the points needed to cut the cell
+            #Also increase the radius 0.5% so that vertices are not missed die to numerical erros
+            rad_cyl = cnt_rad*1.005/(-dot(vm, S))
+            #print('rad_cyl=',rad_cyl)
+
+            #Select the edges enclosed by the cylinder with centerpoints C1 and C2 and radius rad_cyl
+            octagon = mdb.models[modelName].parts[str_part].edges.getByBoundingCylinder(center1=C1, center2=C2, radius=rad_cyl)
+            #print('i=',i-cnt_start-1," octagon.len=",len(octagon))
+            #print(octagon)
+            #print(octagon[0])
+            #print(octagon[1])
+            #For some reason, the selected edges are not a tuple
+            #Thus, create a tuple with the edges of the octagon
+            octagon_edges = (octagon[0], octagon[1], octagon[2], octagon[3], octagon[4], octagon[5], octagon[6], octagon[7])
+
+            #Datum points for testing
+            #if i == cnt_start+1:
+            #    for j in range(len(octagon)):
+            #        mdb.models[modelName].parts[str_part].DatumPointByCoordinate(coords=octagon[j].pointOn[0])
+            
+            try:
+                #Use the octagon edges in the tuple to partition the cell
+                mdb.models[modelName].parts[str_part].PartitionCellByPatchNEdges(
+                    cell=mdb.models[modelName].parts[str_part].cells.findAt(P3, ),
+                    edges=octagon_edges)
+            except:
+                plog('Could not cut part {} on point {}, cnt_start={} cnt_end={}\n'.format(str_part, i-cnt_start-1, cnt_start, cnt_end))
+
+#This function deletes a CNt that could not be meshed beacause part of it was generated as a shell element
+def Delete_And_CreateAgain(modelName, str_part, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords):
+    
+    #Delete old embedded element constraint
+    del mdb.models[modelName].constraints['EE-CNT-%d' %(cnt_i)]
+
+    #Generate name of set for embedded element constraint for cnt_i
+    set_str = ee_string('CNT', cnt_i)
+
+    #Delete old set for cnt_i
+    del mdb.models[modelName].rootAssembly.sets[set_str]
+
+    #Generate name for CNT instance
+    str_inst = cnt_string_instance(cnt_i)
+    
+    #Delete old instance
+    del mdb.models[modelName].rootAssembly.features[str_inst]
+    
+    #Delete initial sweep
+    del mdb.models[modelName].parts[str_part].features['Solid sweep-1']
+    
+    plog('Sweep feature of part '+str_part+' and instance deleted\n')
+    plog('cnt_end= {} cnt_start={}\n'.format(cnt_end, cnt_start))
+
+    #Create sweep for CNT again
+
+    #Profile name 
+    profile_str = '__profile__'
+    
+    #Generate the octagon that will be swept through the CNT segments
+    Generate_Sweep_Profile(modelName, cnt_coords[cnt_end-1], cnt_coords[cnt_end], cnt_rad, str_part, profile_str)
+    
+    #Perform Sweep  
+    Sweep_Command_profileNormal_ON(modelName, str_part, profile_str, cnt_start, cnt_end)
+
+    #Delete sketch
+    del mdb.models[modelName].sketches[profile_str]
+
+    #Assign the CNT section to cnt_i
+    mdb.models[modelName].parts[str_part].SectionAssignment(
+        offset=0.0, 
+        offsetField='', 
+        offsetType=MIDDLE_SURFACE, 
+        region=Region(cells=mdb.models[modelName].parts[str_part].cells),
+        sectionName=cntMaterial, 
+        thicknessAssignment=FROM_SECTION)
+
+    #Generate CNT instance
+    mdb.models[modelName].rootAssembly.Instance(
+        dependent=ON, 
+        name=str_inst,
+        part=mdb.models[modelName].parts[str_part])
+
+    #Create new set for cnt_i
+    mdb.models[modelName].rootAssembly.Set(
+        cells=mdb.models[modelName].rootAssembly.instances[str_inst].cells,
+        name=set_str)
+    
+    #Create new embedded element constraint
+    mdb.models[modelName].EmbeddedRegion(
+        absoluteTolerance=0.0, 
+        fractionalTolerance=0.05, 
+        toleranceMethod=BOTH, 
+        weightFactorTolerance=1e-06,
+        embeddedRegion=mdb.models[modelName].rootAssembly.sets[set_str],
+        hostRegion=mdb.models[modelName].rootAssembly.sets[strHost],
+        name='EE-CNT-%d' %(cnt_i))
+    
+    plog('New part '+str_part+' and instance done\n')
 
 #This functions creates a step and adds the boundary conditions for tension along the z-axis
 def create_step_and_bcs(modelName, str_matrix, stpName, P0, corner, Lxyz):
@@ -1133,7 +1256,7 @@ create_step_and_bcs(modelName, matrixName, stpName, P0, corner, Lxyz)
 start = time.time()
 #Generate meshes
 generate_matrix_mesh(modelName, matrixName, Lxyz, matrixMeshSize)
-generate_cnt_meshes(modelName, N_CNTs, cnt_struct, cnt_coords)
+Generate_CNT_Meshes(modelName, N_CNTs, cnt_struct, cnt_coords)
 
 end = time.time()
 plog("Time for meshing: {}\n".format(end-start))
