@@ -1717,6 +1717,67 @@ def Create_Sets_for_Matrix(model, P0, corner, matrixName):
         vertices=mdb.models[model].rootAssembly.instances[matrixName+'-1'].vertices.getByBoundingSphere(center=corner, radius=0.001),
         name='Matrix1')
 
+def Data_Check_And_Remesh_GSs(modelName, jobName, selectedElementCode, eeMeshSize):
+    
+    #Perform data check
+    start = time.time()
+    mdb.jobs[jobName].submit(consistencyChecking=OFF, datacheckJob=True)
+    mdb.jobs[jobName].waitForCompletion()
+    
+    #Name of lock file
+    lckFile = jobName+'.lck'
+    
+    #Wait for lck file to dissapear
+    while os.path.exists(lckFile):
+        #print('waiting...')
+        time.sleep(5)
+        
+    plog("Data check on input file: {} secs.\n".format(time.time()-start))
+    
+    #Check if there is a set for elements with zero volume
+    try: 
+        
+        #Open database
+        odb = openOdb(path=jobName+'.odb')
+        #print(odb.rootAssembly.elementSets['ErrElemVolSmallNegZero'])
+        #print(odb.rootAssembly.elementSets['ErrElemVolSmallNegZero'].instanceNames)
+        
+        #Get the instances with zero elements if any
+        instanceNames = odb.rootAssembly.elementSets['ErrElemVolSmallNegZero'].instanceNames
+            
+        #Close odb file
+        odb.close()
+        
+        #Iterate over the instances with zero volume elements 
+        for inst in instanceNames:
+            #print(inst)
+            #print(inst[0:len(inst)-2])
+            
+            #Get part name
+            gs_part_str = inst[0:len(inst)-2]
+            plog('Remeshing part '+gs_part_str+' due to zero volume elements\n')
+            
+            #Mesh a GS that is partially outside the RVE
+            Remesh_partial_GS(modelName, gs_part_str, selectedElementCode, eeMeshSize)
+            
+        #This seems to be required by Abaqus to update mesh
+        mdb.models[modelName].rootAssembly.regenerate()
+        
+        #Try the data check on the Abaqus input file again 
+        start = time.time()
+        mdb.jobs[jobName].submit(consistencyChecking=OFF, datacheckJob=True)
+        mdb.jobs[jobName].waitForCompletion()
+        
+        #Wait for lck file to dissapear
+        while os.path.exists(lckFile):
+            #print('waiting...')
+            time.sleep(5)
+            
+        plog("Second data check on input file: {} secs.\n".format(time.time()-start))
+        
+    except:
+        plog('Set ErrElemVolSmallNegZero not found.\n')
+
 
 ##############################################################################################
 ##############################################################################################
@@ -1941,14 +2002,12 @@ if createJob == 1:
         start = time.time()
         mdb.jobs[jobName].writeInput(consistencyChecking=OFF)
         plog("Input file written: {} secs.\n".format(time.time()-start))
-        
-        if dataCheck == 1:
-        
-            #Perform data check
-            start = time.time()
-            mdb.jobs[jobName].submit(consistencyChecking=OFF, datacheckJob=True)
-            mdb.jobs[jobName].waitForCompletion()
-            plog("Data check on input file: {} secs.\n".format(time.time()-start))
+    
+    if dataCheck == 1:
+    
+        #Perform data check
+        #Also remesh GSs with zero volume elements if any
+        Data_Check_And_Remesh_GSs(modelName, jobName, selectedElementCode, eeMeshSize)
 
     if submitJob == 1:
         
