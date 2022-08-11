@@ -1115,15 +1115,31 @@ def create_set_for_cnt_points(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt
     
     #Array to store all nodes that correspond to CNT points
     allNodes = []
+    
+    #Array to store the labels of nodes when more than one is founnd using getByBoundingSphere
+    labelsToRemove = []
 
     #Iterate over all nodes in the centerline of the CNT
     for i in range(cnt_start, cnt_end+1):
         
-        #Find and append node to array
-        allNodes.append(
-			mdb.models[modelName].rootAssembly.instances[cnt_str].nodes.getByBoundingSphere(
-				center=cnt_coords[i], 
-				radius=new_rad))
+        #Find CNT node (or sometimes nodes)
+        newNodes = mdb.models[modelName].rootAssembly.instances[cnt_str].nodes.getByBoundingSphere(
+            center=cnt_coords[i],
+            radius=new_rad)
+        
+        #Append node to array
+        allNodes.append(newNodes)
+        
+        #Check if more than one node was found (sometimes this happens)
+        if len(newNodes) > 1:
+            
+            #Get the number of extra nodes
+            extraNodes = len(newNodes) - 1
+            
+            #Append the labels of the extra nodes to the array labelsToRemove
+            for j in range(extraNodes):
+                #Ignore the first node, so the +1 ensures iterating from 1
+                labelsToRemove.append(newNodes[j+1].label)
     
     #Create a set with the name of the node set and containing all nodes in the centerline of the CNT
     mdb.models[modelName].rootAssembly.Set(
@@ -1131,7 +1147,27 @@ def create_set_for_cnt_points(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt
         name=node_set_str)
 		
 	#Print the length of the set
-	#print('%s nodes=%d points=%d'%(node_set_str, len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes), cnt_end+1-cnt_start))
+	#plog('%s nodes=%d points=%d'%(node_set_str, len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes), cnt_end+1-cnt_start))
+    
+    #Check if there are nodes to remove
+    if len(labelsToRemove) >= 1:
+        
+        #Create a temporary set with the node labels that need to be removed
+        setToRemove = mdb.models[modelName].rootAssembly.SetFromNodeLabels(
+            name='TMP', 
+            nodeLabels=( (cnt_str, labelsToRemove), ))
+        
+        #Remove them from the original set
+        mdb.models[modelName].rootAssembly.SetByBoolean(
+            name=node_set_str, 
+            sets=(cntSet, setToRemove, ), 
+            operation=DIFFERENCE)
+        
+        #Delete temporary set
+        del mdb.models[modelName].rootAssembly.sets['TMP']
+        
+        #Print the length of the set
+        #plog('%s nodes=%d points=%d'%(node_set_str, len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes), cnt_end+1-cnt_start))
 
 #This function creates all sets for the nodes that correspond to the centerline of that CNT
 def create_all_sets_for_cnt_points(modelName, N_CNTs, cnt_struct, cnt_coords):
