@@ -1538,7 +1538,7 @@ def Create_All_Sets_For_CNT_Points(modelName, N_CNTs, cnt_struct, cnt_coords):
 def Create_Set_For_CNT_Points(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords, cnt_str):
 
     #Calculate radius for serching nodes
-    new_rad = cnt_rad/10;
+    new_rad = cnt_rad/10
 
     #Get the name of the node set
     node_set_str = cnt_string_node_set(cnt_i)

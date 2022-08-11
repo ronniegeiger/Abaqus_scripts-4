@@ -1108,7 +1108,7 @@ def create_sets_for_matrix(modelName, P0, Lxyz, str_matrix):
 def create_set_for_cnt_points(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords, cnt_str):
 
     #Calculate radius for serching nodes
-    new_rad = cnt_rad/4;
+    new_rad = cnt_rad/10
 
     #Get the name of the node set
     node_set_str = cnt_string_node_set(cnt_i)
