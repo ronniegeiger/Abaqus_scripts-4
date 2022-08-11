@@ -1999,7 +1999,7 @@ for cnt_i in range(1, N_CNTs+1):
     #Check if the number of points and nodes is different
     if n_nodes != N_p:
         
-        plog('Set %s nodes=%d points=%d'%(node_set_str, len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes), N_p))
+        plog('Set %s nodes=%d points=%d\n'%(node_set_str, len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes), N_p))
         
         #Get the start and end of the CNT
         cnt_start = acc_pts
@@ -2048,7 +2048,7 @@ for cnt_i in range(1, N_CNTs+1):
         del mdb.models[modelName].rootAssembly.sets['TMP']
         
         #Print the length of the set
-        plog('New set %s nodes=%d points=%d'%(node_set_str, len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes), N_p))
+        plog('New set %s nodes=%d points=%d\n'%(node_set_str, len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes), N_p))
 
     #Increase the number of accumulated points
     acc_pts += N_p  
