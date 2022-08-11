@@ -1348,6 +1348,15 @@ def Partition_CNT_Cell(modelName, cnt_rad, cnt_start, cnt_end, cnt_coords, str_p
 
     #Half of the cylinder height
     hc = cnt_rad*0.1
+    
+    #Array to store additional cuts
+    additionalCuts = []
+    
+    #Array to store cuts
+    cutsDone = []
+    
+    #Array to store all cuts that could not be done at first
+    invalidCuts = []
 
     #Iterate over the CNT points, starting on the secont point and finishing on the previous to last point
     for i in range(cnt_start+1, cnt_end): 
@@ -1375,46 +1384,17 @@ def Partition_CNT_Cell(modelName, cnt_rad, cnt_start, cnt_end, cnt_coords, str_p
         #Check if need to cut the cell at point P2
         if cosV < cos45:
             #The CNT cell needs to be cut at P2
-
-            #Get a unit vector that goes along the plane that bisects the angle 
-            #between v1 and v2
-            vm = make_unit((v1[0]+v2[0], v1[1]+v2[1], v1[2]+v2[2]))
-            #print('vm')
-
-            #Vector normal to v1, v2, and vm (all three lie on the same plane)
-            N3 = cross(v2, v1)
-
-            #Get the normal for the plane at the midpoint
-            #Since both v1 and vm are unit vectors, N is also a unit vector
-            N = cross(N3, vm)
-
-            #Calculate a displacement to set the points of the cylinder
-            disp = (N[0]*hc, N[1]*hc, N[2]*hc)
-
-            #Calculate first point of Cylinder height
-            C1 = (P2[0]+disp[0], P2[1]+disp[1], P2[2]+disp[2])
-
-            #Calculate second point of Cylinder height
-            C2 = (P2[0]-disp[0], P2[1]-disp[1], P2[2]-disp[2])
-
-            #Calculate vector along the plane
-            #Since both v1 and vm are unit vectors, S is also a unit vector
-            S = cross(N3, v1)
-
-            #Calculate the radius of the cylinder that will be used to select the points needed to cut the cell
-            #Also increase the radius 0.5% so that vertices are not missed die to numerical erros
-            rad_cyl = cnt_rad*1.005/(-dot(vm, S))
-            #print('rad_cyl=',rad_cyl)
-
-            #Select the edges enclosed by the cylinder with centerpoints C1 and C2 and radius rad_cyl
-            octagon = mdb.models[modelName].parts[str_part].edges.getByBoundingCylinder(center1=C1, center2=C2, radius=rad_cyl)
-            #print('i=',i-cnt_start-1," octagon.len=",len(octagon))
-            #print(octagon)
-            #print(octagon[0])
-            #print(octagon[1])
-            #For some reason, the selected edges are not a tuple
-            #Thus, create a tuple with the edges of the octagon
-            octagon_edges = (octagon[0], octagon[1], octagon[2], octagon[3], octagon[4], octagon[5], octagon[6], octagon[7])
+        
+            #Add index to array of cuts done
+            cutsDone.append(i)
+            
+            #Check if the current point was added to the array of additional cuts
+            if len(additionalCuts) > 0 and i == additionalCuts[-1]:
+                #Remove the last element from additionalCuts array
+                additionalCuts.pop()
+                
+            #Get the edges of the octagon that are used to cut the CNT
+            octagon_edges = Get_octagon_to_cut_CNT(modelName, str_part, cnt_rad, P2, v1, v2, hc)
 
             #Datum points for testing
             #if i == cnt_start+1:
@@ -1427,7 +1407,137 @@ def Partition_CNT_Cell(modelName, cnt_rad, cnt_start, cnt_end, cnt_coords, str_p
                     cell=mdb.models[modelName].parts[str_part].cells.findAt(P3, ),
                     edges=octagon_edges)
             except:
-                plog('Could not cut part {} on point {}, cnt_start={} cnt_end={}\n'.format(str_part, i-cnt_start-1, cnt_start, cnt_end))
+                #Datum point could be helpful for debugging
+                #mdb.models[modelName].parts[str_part].DatumPointByCoordinate(P2)
+                
+                #Save the point for invalid cut
+                invalidCuts.append(i)
+                
+                #Additional couts are needed, so append the previous and next point number
+                #to the array of additional cuts
+                #Check the previous point is not the first CNT point, which happens when:
+                #   the point is not the first point in the CNT
+                #   AND
+                #   the poit is not a previus cut (i.e., cutsDone is empty or point is not the last element in array cutsDone)
+                if i-1 != cnt_start and (len(cutsDone)==0 or i-1 != cutsDone[-1]):
+                    additionalCuts.append(i-1)
+                #Check the next point is not the last point in the CNT
+                if i+1 < cnt_end-1:
+                    additionalCuts.append(i+1)
+                
+                plog('Could not cut part {} on point {}, cnt_start={} cnt_end={}\n'.format(str_part, i-cnt_start, cnt_start, cnt_end))
+                
+    #Check if there are additional cuts needed
+    if len(additionalCuts) > 0:
+        
+        #Addtional cuts needed, iterate over those points
+        for j in additionalCuts:
+
+            #Get the points of the CNT segments that share point i
+            #End point of first CNT segment
+            P1 = cnt_coords[j-1]
+            #Point shared by both CNT segments
+            P2 = cnt_coords[j]
+            #End point of second CNT segment
+            P3 = cnt_coords[j+1]
+    
+            #Get the unit vector of first CNT segment
+            v1 = get_unit_vector(P2, P1)
+    
+            #Get the unit vector of second CNT segment
+            v2 = get_unit_vector(P2, P3)
+            
+            #Get the edges of the octagon that are used to cut the CNT
+            octagon_edges = Get_octagon_to_cut_CNT(modelName, str_part, cnt_rad, P2, v1, v2, hc)
+            try:
+                #Use the octagon edges in the tuple to partition the cell
+                mdb.models[modelName].parts[str_part].PartitionCellByPatchNEdges(
+                    cell=mdb.models[modelName].parts[str_part].cells.findAt(P2, ),
+                    edges=octagon_edges)
+                
+                plog('Additional cut on part {} on point {}, cnt_start={} cnt_end={}\n'.format(str_part, j-cnt_start, cnt_start, cnt_end))
+            except:
+                
+                plog('Could not make additional cut on part {} on point {}, cnt_start={} cnt_end={}\n'.format(str_part, j-cnt_start, cnt_start, cnt_end))
+    
+    #Check if the invalid cuts can be done now
+    if len(invalidCuts) > 0:  
+        
+        #Addtional cuts needed, iterate over those points
+        for j in invalidCuts:
+            print('Invalid cut second attempt ',j)
+            
+            #Get the points of the CNT segments that share point i
+            #End point of first CNT segment
+            P1 = cnt_coords[j-1]
+            #Point shared by both CNT segments
+            P2 = cnt_coords[j]
+            #End point of second CNT segment
+            P3 = cnt_coords[j+1]
+    
+            #Get the unit vector of first CNT segment
+            v1 = get_unit_vector(P2, P1)
+    
+            #Get the unit vector of second CNT segment
+            v2 = get_unit_vector(P2, P3)
+            
+            #Get the edges of the octagon that are used to cut the CNT
+            octagon_edges = Get_octagon_to_cut_CNT(modelName, str_part, cnt_rad, P2, v1, v2, hc)
+            try:
+                #Use the octagon edges in the tuple to partition the cell
+                mdb.models[modelName].parts[str_part].PartitionCellByPatchNEdges(
+                    cell=mdb.models[modelName].parts[str_part].cells.findAt(P2, ),
+                    edges=octagon_edges)
+                
+                plog('Cut after second attempt on part {} on point {}, cnt_start={} cnt_end={}\n'.format(str_part, j-cnt_start, cnt_start, cnt_end))
+            except:
+                
+                plog('Could not make cut after second attempt on part {} on point {}, cnt_start={} cnt_end={}\n'.format(str_part, j-cnt_start, cnt_start, cnt_end))     
+
+#This function get the octagon needed to cut a CNT
+def Get_octagon_to_cut_CNT(modelName, str_part, cnt_rad, P2, v1, v2, hc):
+    
+    #Get a unit vector that goes along the plane that bisects the angle 
+    #between v1 and v2
+    vm = make_unit((v1[0]+v2[0], v1[1]+v2[1], v1[2]+v2[2]))
+    #print('vm')
+
+    #Vector normal to v1, v2, and vm (all three lie on the same plane)
+    N3 = cross(v2, v1)
+
+    #Get the normal for the plane at the midpoint
+    #Since both v1 and vm are unit vectors, N is also a unit vector
+    N = cross(N3, vm)
+
+    #Calculate a displacement to set the points of the cylinder
+    disp = (N[0]*hc, N[1]*hc, N[2]*hc)
+
+    #Calculate first point of Cylinder height
+    C1 = (P2[0]+disp[0], P2[1]+disp[1], P2[2]+disp[2])
+
+    #Calculate second point of Cylinder height
+    C2 = (P2[0]-disp[0], P2[1]-disp[1], P2[2]-disp[2])
+
+    #Calculate vector along the plane
+    #Since both v1 and vm are unit vectors, S is also a unit vector
+    S = cross(N3, v1)
+
+    #Calculate the radius of the cylinder that will be used to select the points needed to cut the cell
+    #Also increase the radius 0.5% so that vertices are not missed die to numerical erros
+    rad_cyl = cnt_rad*1.005/(-dot(vm, S))
+    #print('rad_cyl=',rad_cyl)
+
+    #Select the edges enclosed by the cylinder with centerpoints C1 and C2 and radius rad_cyl
+    octagon = mdb.models[modelName].parts[str_part].edges.getByBoundingCylinder(center1=C1, center2=C2, radius=rad_cyl)
+    #print('i=',i-cnt_start-1," octagon.len=",len(octagon))
+    #print(octagon)
+    #print(octagon[0])
+    #print(octagon[1])
+    #For some reason, the selected edges are not a tuple
+    #Thus, create a tuple with the edges of the octagon
+    octagon_edges = (octagon[0], octagon[1], octagon[2], octagon[3], octagon[4], octagon[5], octagon[6], octagon[7])
+    
+    return octagon_edges
 
 #This function deletes a CNt that could not be meshed beacause part of it was generated as a shell element
 def Delete_And_CreateAgain(modelName, str_part, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords):
