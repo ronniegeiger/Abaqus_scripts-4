@@ -104,7 +104,6 @@ createJob = 1
 # 1 = yes
 saveInputFile = 0
 #Perform data check on input file
-#If flag saveInputFile is set to 0, this flag is ignored
 # 0 = no
 # 1 = yes
 dataCheck = 0
@@ -1442,13 +1441,13 @@ if createJob == 1:
         mdb.jobs[jobName].writeInput(consistencyChecking=OFF)
         plog("Input file written: {} secs.\n".format(time.time()-start))
         
-        if dataCheck == 1:
-        
-            #Perform data check
-            start = time.time()
-            mdb.jobs[jobName].submit(consistencyChecking=OFF, datacheckJob=True)
-            mdb.jobs[jobName].waitForCompletion()
-            plog("Data check on input file: {} secs.\n".format(time.time()-start))
+    if dataCheck == 1:
+    
+        #Perform data check
+        start = time.time()
+        mdb.jobs[jobName].submit(consistencyChecking=OFF, datacheckJob=True)
+        mdb.jobs[jobName].waitForCompletion()
+        plog("Data check on input file: {} secs.\n".format(time.time()-start))
 
     if submitJob == 1:
 

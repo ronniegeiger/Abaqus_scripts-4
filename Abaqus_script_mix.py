@@ -81,7 +81,6 @@ createJob = 1
 # 1 = yes
 saveInputFile = 0
 #Perform data check on input file
-#If flag saveInputFile is set to 0, this flag is ignored
 # 0 = no
 # 1 = yes
 dataCheck = 0
