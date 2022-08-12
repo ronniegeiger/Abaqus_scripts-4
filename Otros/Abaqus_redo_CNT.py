@@ -1861,6 +1861,9 @@ def Generate_CNT_Meshes_Range(modelName, N_CNT_start, N_CNT_end, cnt_struct, cnt
 
         #Get the string for the CNT part
         cnt_str = string_part('CNT', cnt_i)
+        
+        #Size of element
+        cnt_el = 2.0*cnt_struct[cnt_i][1]
 
         #Mesh cnt_i, use its radius as the element size
         #deviationFactor and minSizeFactor have the default values from Abaqus
@@ -1868,20 +1871,8 @@ def Generate_CNT_Meshes_Range(modelName, N_CNT_start, N_CNT_end, cnt_struct, cnt
             deviationFactor=0.1, minSizeFactor=0.1, size=cnt_struct[cnt_i][1])
         mdb.models[modelName].parts[cnt_str].generateMesh()
 
-        #Get the number of nodes generated
-        num_nodes = mdb.models[modelName].parts[cnt_str].getMeshStats((mdb.models[modelName].parts[cnt_str].cells,)).numNodes
-        #print(cnt_str,' nodes=', num_nodes)
-
-        #Check the number of nodes in the mesh
-        if num_nodes == 0:
-
-            #The CNT was not meshed
-            #Cut the CNT cell where needed
-            Partition_CNT_Cell(modelName, cnt_rad, acc_pts, acc_pts+N_p-1, cnt_coords, cnt_str)
-
-            #Try to mesh again
-            mdb.models[modelName].parts[cnt_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=cnt_struct[cnt_i][1])
-            mdb.models[modelName].parts[cnt_str].generateMesh()
+        #Check if the CNT needs to be remeshed
+        Remesh_CNT_When_Needed(modelName, cnt_str, cnt_i, cnt_rad, acc_pts, N_p, cnt_el, cnt_coords)
 
         #Increase the number of accumulated points
         acc_pts += N_p
@@ -1907,6 +1898,9 @@ def Generate_CNT_Meshes_Array(modelName, cnts_new, arr_acc_pts, cnt_struct, cnt_
 
         #Get the string for the CNT part
         cnt_str = string_part('CNT', cnt_i)
+        
+        #Size of element
+        cnt_el = 2.0*cnt_struct[cnt_i][1]
 
         #Mesh cnt_i, use its radius as the element size
         #deviationFactor and minSizeFactor have the default values from Abaqus
@@ -1914,23 +1908,8 @@ def Generate_CNT_Meshes_Array(modelName, cnts_new, arr_acc_pts, cnt_struct, cnt_
             deviationFactor=0.1, minSizeFactor=0.1, size=cnt_struct[cnt_i][1])
         mdb.models[modelName].parts[cnt_str].generateMesh()
 
-        #Get the number of nodes generated
-        num_nodes = mdb.models[modelName].parts[cnt_str].getMeshStats((mdb.models[modelName].parts[cnt_str].cells,)).numNodes
-        #print(cnt_str,' nodes=', num_nodes)
-
-        #Check the number of nodes in the mesh
-        if num_nodes == 0:
-            
-            #Get the number of accumulated points
-            acc_pts = arr_acc_pts[i]
-
-            #The CNT was not meshed
-            #Cut the CNT cell where needed
-            Partition_CNT_Cell(modelName, cnt_rad, acc_pts, acc_pts+N_p-1, cnt_coords, cnt_str)
-
-            #Try to mesh again
-            mdb.models[modelName].parts[cnt_str].seedPart(deviationFactor=0.1, minSizeFactor=0.1, size=cnt_struct[cnt_i][1])
-            mdb.models[modelName].parts[cnt_str].generateMesh()
+        #Check if the CNT needs to be remeshed
+        Remesh_CNT_When_Needed(modelName, cnt_str, cnt_i, cnt_rad, arr_acc_pts[i], N_p, cnt_el, cnt_coords)
 
 #Mesh the matrix
 def Generate_Matrix_Mesh(modelName, matrixName, selectedElementCode):
