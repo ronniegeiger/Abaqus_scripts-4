@@ -1910,6 +1910,9 @@ def Generate_CNT_Meshes_Array(modelName, cnts_new, arr_acc_pts, cnt_struct, cnt_
 
         #Check if the CNT needs to be remeshed
         Remesh_CNT_When_Needed(modelName, cnt_str, cnt_i, cnt_rad, arr_acc_pts[i], N_p, cnt_el, cnt_coords)
+        
+    #This seems to be required by Abaqus
+    mdb.models[modelName].rootAssembly.regenerate()
 
 #Mesh the matrix
 def Generate_Matrix_Mesh(modelName, matrixName, selectedElementCode):
