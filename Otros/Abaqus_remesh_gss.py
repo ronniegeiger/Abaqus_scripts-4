@@ -1485,8 +1485,7 @@ def Partition_CNT_Cell(modelName, cnt_rad, cnt_start, cnt_end, cnt_coords, str_p
             N3 = cross(v2, v1)
 
             #Get the normal for the plane at the midpoint
-            #Since both v1 and vm are unit vectors, N is also a unit vector
-            N = cross(N3, vm)
+            N = make_unit(cross(N3, vm))
 
             #Calculate a displacement to set the points of the cylinder
             disp = (N[0]*hc, N[1]*hc, N[2]*hc)
@@ -1498,8 +1497,7 @@ def Partition_CNT_Cell(modelName, cnt_rad, cnt_start, cnt_end, cnt_coords, str_p
             C2 = (P2[0]-disp[0], P2[1]-disp[1], P2[2]-disp[2])
 
             #Calculate vector along the plane
-            #Since both v1 and vm are unit vectors, S is also a unit vector
-            S = cross(N3, v1)
+            S = make_unit(cross(N3, v1))
 
             #Calculate the radius of the cylinder that will be used to select the points needed to cut the cell
             #Also increase the radius 0.5% so that vertices are not missed die to numerical erros
