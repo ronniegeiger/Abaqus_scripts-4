@@ -1227,63 +1227,9 @@ def Create_All_Sets_For_CNT_Points(modelName, N_CNTs, cnt_struct, cnt_coords):
         
         #Make set with the CNT points
         Create_Set_For_CNT_Points(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords, cnt_str_inst)
-
-        #Get the name of the node set
-        node_set_str = cnt_string_node_set(cnt_i)
-            
-        #Get the number of nodes in the set
-        n_nodes = len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes)
-        #plog('n_nodes = {}\n'.format(n_nodes))
         
-        #Check that the set has the right amount if nodes
-        if n_nodes != N_p:
-            
-            if n_nodes == 0:
-                plog('Empty set due to irregular mesh: {}\n'.format(node_set_str))
-            else:
-                plog('Set {} does not have the expected number of nodes ({} nodes but {} points) likely due to an irregular mesh\n'.format(node_set_str,n_nodes,N_p))
-            
-            #Make two extra cuts
-            plog('Attempting two more cuts on CNT cell...\n')
-            
-            #Delete intial set
-            del mdb.models[modelName].rootAssembly.sets[node_set_str]
-            
-            #Calculate height of cylinder
-            hc = cnt_rad*0.1
-            
-            #Generate strings for messages
-            str_try = 'dditional cut (to generate set) on part {} on point {}, cnt_start={} cnt_end={}\n'.format(cnt_str_part, 1, cnt_start, cnt_end)
-            str_except = 'Could not make a'+str_try
-            str_try = 'A'+str_try
-            
-            #Cut the CNT cell at second point in the CNT (cnt_start+1)
-            Partition_CNT_Cell_At_Point(modelName, cnt_rad, cnt_start, cnt_end, cnt_start+1, cnt_coords, cnt_str_part, hc, str_try, str_except)
-            
-            #Generate strings for messages
-            str_try = 'dditional cut (to generate set) on part {} on point {}, cnt_start={} cnt_end={}\n'.format(cnt_str_part, N_p-2, cnt_start, cnt_end)
-            str_except = 'Could not make a'+str_try
-            str_try = 'A'+str_try
-            
-            #Cut the CNT cell at previous to last point in CNT (cnt_end-2)
-            Partition_CNT_Cell_At_Point(modelName, cnt_rad, cnt_start, cnt_end, cnt_end-2, cnt_coords, cnt_str_part, hc, str_try, str_except)
-            
-            #Mesh again
-            mdb.models[modelName].parts[cnt_str_part].seedPart(
-                deviationFactor=0.1, 
-                minSizeFactor=0.1, 
-                size=2.0*cnt_rad)
-            mdb.models[modelName].parts[cnt_str_part].generateMesh()
-        
-            #This seems to be required by Abaqus to update the mesh
-            mdb.models[modelName].rootAssembly.regenerate()
-            
-            #Create set again
-            Create_Set_For_CNT_Points(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords, cnt_str_inst)
-            
-            #Get the number of nodes in the set
-            n_nodes = len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes)
-            #plog('updated n_nodes = {}\n'.format(n_nodes))
+        #Check that the set has the right amount of nodes
+        Check_NonEmpty_CNT_Set(modelName, cnt_str_part, cnt_str_inst, cnt_i, cnt_start, cnt_end, N_p, cnt_rad, cnt_coords)
 
         #Increase the number of accumulated points
         acc_pts += N_p
@@ -1352,7 +1298,65 @@ def Create_Set_For_CNT_Points(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt
         
         #Print the length of the set
         #plog('%s nodes=%d points=%d\n'%(node_set_str, len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes), cnt_end+1-cnt_start))
-	
+
+def Check_NonEmpty_CNT_Set(modelName, cnt_str_part, cnt_str_inst, cnt_i, cnt_start, cnt_end, N_p, cnt_rad, cnt_coords):
+
+    #Get the name of the node set
+    node_set_str = cnt_string_node_set(cnt_i)
+        
+    #Get the number of nodes in the set
+    n_nodes = len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes)
+    #plog('n_nodes = {}\n'.format(n_nodes))
+    
+    #Check that the set has the right amount if nodes
+    if n_nodes != N_p:
+        
+        if n_nodes == 0:
+            plog('Empty set due to irregular mesh: {}\n'.format(node_set_str))
+        else:
+            plog('Set {} does not have the expected number of nodes ({} nodes but {} points) likely due to an irregular mesh\n'.format(node_set_str,n_nodes,N_p))
+        
+        #Make two extra cuts
+        plog('Attempting two more cuts on CNT cell...\n')
+        
+        #Delete intial set
+        del mdb.models[modelName].rootAssembly.sets[node_set_str]
+        
+        #Calculate height of cylinder
+        hc = cnt_rad*0.1
+        
+        #Generate strings for messages
+        str_try = 'dditional cut (to generate set) on part {} on point {}, cnt_start={} cnt_end={}\n'.format(cnt_str_part, 1, cnt_start, cnt_end)
+        str_except = 'Could not make a'+str_try
+        str_try = 'A'+str_try
+        
+        #Cut the CNT cell at second point in the CNT (cnt_start+1)
+        Partition_CNT_Cell_At_Point(modelName, cnt_rad, cnt_start, cnt_end, cnt_start+1, cnt_coords, cnt_str_part, hc, str_try, str_except)
+        
+        #Generate strings for messages
+        str_try = 'dditional cut (to generate set) on part {} on point {}, cnt_start={} cnt_end={}\n'.format(cnt_str_part, N_p-2, cnt_start, cnt_end)
+        str_except = 'Could not make a'+str_try
+        str_try = 'A'+str_try
+        
+        #Cut the CNT cell at previous to last point in CNT (cnt_end-2)
+        Partition_CNT_Cell_At_Point(modelName, cnt_rad, cnt_start, cnt_end, cnt_end-2, cnt_coords, cnt_str_part, hc, str_try, str_except)
+        
+        #Mesh again
+        mdb.models[modelName].parts[cnt_str_part].seedPart(
+            deviationFactor=0.1, 
+            minSizeFactor=0.1, 
+            size=2.0*cnt_rad)
+        mdb.models[modelName].parts[cnt_str_part].generateMesh()
+    
+        #This seems to be required by Abaqus to update the mesh
+        mdb.models[modelName].rootAssembly.regenerate()
+        
+        #Create set again
+        Create_Set_For_CNT_Points(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt_coords, cnt_str_inst)
+        
+        #Get the number of nodes in the set
+        n_nodes = len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes)
+        #plog('updated n_nodes = {}\n'.format(n_nodes))
 	
 ######################################---ABAQUS FUNCTIONS---########################################
 ######################################----------END---------########################################
