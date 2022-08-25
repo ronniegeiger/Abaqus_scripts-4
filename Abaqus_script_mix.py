@@ -1707,6 +1707,7 @@ def Create_Set_For_CNT_Points(modelName, cnt_i, cnt_rad, cnt_start, cnt_end, cnt
         #Print the length of the set
         #plog('%s nodes=%d points=%d\n'%(node_set_str, len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes), cnt_end+1-cnt_start))
 
+#This function cuts a CNT cell on all points so that a proper meshing is ensured
 def Check_NonEmpty_CNT_Set(modelName, cnt_str_part, cnt_str_inst, cnt_i, cnt_start, cnt_end, N_p, cnt_rad, cnt_coords):
 
     #Get the name of the node set
@@ -1724,30 +1725,24 @@ def Check_NonEmpty_CNT_Set(modelName, cnt_str_part, cnt_str_inst, cnt_i, cnt_sta
         else:
             plog('Set {} does not have the expected number of nodes ({} nodes but {} points) likely due to an irregular mesh\n'.format(node_set_str,n_nodes,N_p))
         
-        #Make two extra cuts
-        plog('Attempting two more cuts on CNT cell...\n')
+        #Make extra cuts
+        plog('Attempting more cuts on part {}...\n'.format(cnt_str_part))
         
         #Delete intial set
         del mdb.models[modelName].rootAssembly.sets[node_set_str]
         
-        #Calculate height of cylinder
+        #Calculate height of cylinder for finding octagon used to cut CNT cell
         hc = cnt_rad*0.1
         
-        #Generate strings for messages
-        str_try = 'dditional cut (to generate set) on part {} on point {}, cnt_start={} cnt_end={}\n'.format(cnt_str_part, 1, cnt_start, cnt_end)
-        str_except = 'Could not make a'+str_try
-        str_try = 'A'+str_try
+        str1 = 'Additional cut (to generate set) on point '
+        str2 = 'Could not make additional cut (to generate set) on point '
         
-        #Cut the CNT cell at second point in the CNT (cnt_start+1)
-        Partition_CNT_Cell_At_Point(modelName, cnt_rad, cnt_start, cnt_end, cnt_start+1, cnt_coords, cnt_str_part, hc, str_try, str_except)
+        #Cut the CNT cell at all points
+        for Pi in range(cnt_start+1, cnt_end-1):
         
-        #Generate strings for messages
-        str_try = 'dditional cut (to generate set) on part {} on point {}, cnt_start={} cnt_end={}\n'.format(cnt_str_part, N_p-2, cnt_start, cnt_end)
-        str_except = 'Could not make a'+str_try
-        str_try = 'A'+str_try
-        
-        #Cut the CNT cell at previous to last point in CNT (cnt_end-2)
-        Partition_CNT_Cell_At_Point(modelName, cnt_rad, cnt_start, cnt_end, cnt_end-2, cnt_coords, cnt_str_part, hc, str_try, str_except)
+            #Update string for messages
+            str3 = '{} (global {})\n'.format(Pi-cnt_start, Pi)
+            Partition_CNT_Cell_At_Point(modelName, cnt_rad, cnt_start, cnt_end, Pi, cnt_coords, cnt_str_part, hc, str1+str3, str2+str3)
         
         #Mesh again
         mdb.models[modelName].parts[cnt_str_part].seedPart(

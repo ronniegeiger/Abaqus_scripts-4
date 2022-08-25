@@ -906,17 +906,32 @@ def Delete_Imported_Create_New(modelName, cnts_new, cnt_struct, cnt_coords, cntM
         #Delete old part
         del mdb.models[modelName].parts[str_part]
         
-        plog('Part '+str_part+' and instance deleted')
+        plog('Part '+str_part+' and instance deleted\n')
         
         #Get the constraint name to be deleted
         delConstraint = fillerConstraint[str_inst]
         
         #Delete old embedded element constraint
         del mdb.models[modelName].constraints[delConstraint]
+        
+        cnt_start = acc_pts
+        cnt_end = acc_pts+N_p-1
 
         #Create CNT again
-        #THIS VERSION HAS THE OPTION profileNormal=ON
-        CNT_Part(modelName, cnt_i, rad, acc_pts, acc_pts+N_p-1, cnt_coords)
+        CNT_Part(modelName, cnt_i, rad, cnt_start, cnt_end, cnt_coords)
+        
+        #Calculate height of cylinder for finding octagon used to cut CNT cell
+        hc = rad*0.1
+        
+        str1 = 'Additional cut (to generate set) on point '
+        str2 = 'Could not make additional cut (to generate set) on point '
+        
+        #Cut the CNT cell at all points
+        for Pi in range(cnt_start+1, cnt_end-1):
+        
+            #Update string for messages
+            str3 = '{} (global {})\n'.format(Pi-cnt_start, Pi)
+            Partition_CNT_Cell_At_Point(modelName, rad, cnt_start, cnt_end, Pi, cnt_coords, str_part, hc, str1+str3, str2+str3)
 
         #Assign the CNT section to cnt_i
         mdb.models[modelName].parts[str_part].SectionAssignment(
@@ -933,7 +948,7 @@ def Delete_Imported_Create_New(modelName, cnts_new, cnt_struct, cnt_coords, cntM
             name=str_inst,
             part=mdb.models[modelName].parts[str_part])
         
-        plog('New part '+str_part+' and instance done')
+        plog('New part '+str_part+' and instance done\n')
         
         #Update previous cNT number
         cnt_prev = cnt_i
@@ -2359,8 +2374,31 @@ Create_All_Sets_For_CNT_Points_Array(modelName, cnts_new, arr_acc_pts, cnt_struc
 end = time.time()
 plog("Time for meshing: {} secs.\n".format(end-start))
 
-#print('The model has been completed in %s seconds.' % round(time.time() - start0, 1))
 #---------------------------------------END: MESHING----------------------------------------#
+
+#Check if there are any sets that do not have the expected number of nodes 
+
+#Iterate over the number of CNTs
+for cnt_i in range(1, N_CNTs+1):
+
+    #Get the name of the node set
+    node_set_str = cnt_string_node_set(cnt_i)
+
+    #Get the number of points in the CNT and its radius
+    N_p = int(cnt_struct[cnt_i][0])
+    
+    try:
+        #Get the number of nodes in the set
+        n_nodes = len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes)
+    
+        #Check if the number of points and nodes is different
+        if n_nodes != N_p:
+            
+            plog('Set %s nodes=%d points=%d\n'%(node_set_str, len(mdb.models[modelName].rootAssembly.sets[node_set_str].nodes), N_p))
+            
+    except:
+        #If the set could not be accessed send a message
+        plog('Set not found: {}\n'.format(node_set_str))
 
 ###################################---JOB CREATION---######################################
 
