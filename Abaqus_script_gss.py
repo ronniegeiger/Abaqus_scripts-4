@@ -1004,8 +1004,9 @@ jobName = 'GS-'+str(N_GSs)+'_EPS-'+str(elementsPerSide)+'_MR-'+str(int(100*meshR
 #Name of the file to save print messages
 print_file = jobName + '.txt'
 pfile = open(print_file, "a")
-
+plog('####################  START  ####################\n')
 plog('There are ' + str(N_GSs) + ' GSs inside the RVE.\n')
+plog('Reading csv files time: {}\n'.format(time.time()-start0))
 
 #Number of GS laying inside/outside the RVE
 indexOutside = []

@@ -2033,9 +2033,10 @@ jobName = 'CNT-'+str(N_CNTs)+'_GS-'+str(N_GSs)+'_EPS-'+str(elementsPerSide)+'_MR
 #Name of the file to save print messages
 print_file = jobName + '.txt'
 pfile = open(print_file, "a")
-
+plog('####################  START  ####################\n')
 plog('There are ' + str(N_GSs) + ' GSs inside the RVE.\n')
 plog('There are ' + str(N_CNTs) + ' CNTs inside the RVE.\n')
+plog('Reading csv files time: {}\n'.format(time.time()-start0))
 
 #Arrays to store GSs laying inside or partially outside the RVE
 indexOutside = []

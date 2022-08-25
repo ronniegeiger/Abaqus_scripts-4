@@ -1418,8 +1418,9 @@ jobName = 'CNT-'+str(N_CNTs)+'_EPS-'+str(elementsPerSide)
 #Name of the file to save print messages
 print_file = jobName + '.txt'
 pfile = open(print_file, "a")
-
+plog('####################  START  ####################\n')
 plog('There are ' + str(N_CNTs) + ' CNTs inside the RVE.\n')
+plog('Reading csv files time: {}\n'.format(time.time()-start0))
 
 start = time.time()
 

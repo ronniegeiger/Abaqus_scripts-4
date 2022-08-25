@@ -2263,8 +2263,11 @@ jobName = 'VOL0160_CNT01GNP02'
 #Name of the file to save print messages
 print_file = jobName + '.txt'
 pfile = open(print_file, "a")
-
+plog('####################  START  ####################\n')
 plog('New input file: '+jobName+'.inp\n')
+plog('There are ' + str(N_GSs) + ' GSs inside the RVE.\n')
+plog('There are ' + str(N_CNTs) + ' CNT sinside the RVE.\n')
+plog('Reading csv files time: {}\n'.format(time.time()-start0))
     
 start = time.time()
 
