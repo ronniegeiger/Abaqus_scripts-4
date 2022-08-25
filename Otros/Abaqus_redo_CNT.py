@@ -1651,10 +1651,6 @@ def Partition_CNT_Cell(modelName, cnt_rad, cnt_start, cnt_end, cnt_coords, str_p
             #if i == cnt_start+1:
             #    for j in range(len(octagon)):
             #        mdb.models[modelName].parts[str_part].DatumPointByCoordinate(coords=octagon[j].pointOn[0])
-            #Use the octagon edges in the tuple to partition the cell
-            # mdb.models[modelName].parts[str_part].PartitionCellByPatchNEdges(
-            #     cell=mdb.models[modelName].parts[str_part].cells.findAt(P3, ),
-            #     edges=octagon_edges)
             
             try:
                 #Use the octagon edges in the tuple to partition the cell
@@ -1684,70 +1680,61 @@ def Partition_CNT_Cell(modelName, cnt_rad, cnt_start, cnt_end, cnt_coords, str_p
                 
     #Check if there are additional cuts needed
     if len(additionalCuts) > 0:
-    
+        
         #Addtional cuts needed, iterate over those points
         for j in additionalCuts:
-    
-            #Get the points of the CNT segments that share point i
-            #End point of first CNT segment
-            P1 = cnt_coords[j-1]
-            #Point shared by both CNT segments
-            P2 = cnt_coords[j]
-            #End point of second CNT segment
-            P3 = cnt_coords[j+1]
-    
-            #Get the unit vector of first CNT segment
-            v1 = get_unit_vector(P2, P1)
-    
-            #Get the unit vector of second CNT segment
-            v2 = get_unit_vector(P2, P3)
-    
-            #Get the edges of the octagon that are used to cut the CNT
-            octagon_edges = Get_octagon_to_cut_CNT(modelName, str_part, cnt_rad, P2, v1, v2, hc)
-            try:
-                #Use the octagon edges in the tuple to partition the cell
-                mdb.models[modelName].parts[str_part].PartitionCellByPatchNEdges(
-                    cell=mdb.models[modelName].parts[str_part].cells.findAt(P2, ),
-                    edges=octagon_edges)
-    
-                plog('Additional cut on part {} on point {}, cnt_start={} cnt_end={}\n'.format(str_part, j-cnt_start, cnt_start, cnt_end))
-            except:
-    
-                plog('Could not make additional cut on part {} on point {}, cnt_start={} cnt_end={}\n'.format(str_part, j-cnt_start, cnt_start, cnt_end))
+            
+            #Generete strings for messages
+            str_try = 'dditional cut on part {} on point {}, cnt_start={} cnt_end={}\n'.format(str_part, j-cnt_start, cnt_start, cnt_end)
+            str_except = 'Could not make a'+str_try
+            str_try = 'A'+str_try
+            
+            #Cut the CNT cell at point j
+            Partition_CNT_Cell_At_Point(modelName, cnt_rad, cnt_start, cnt_end, j, cnt_coords, str_part, hc, str_try, str_except)
     
     #Check if the invalid cuts can be done now
     if len(invalidCuts) > 0:  
-    
+        
         #Addtional cuts needed, iterate over those points
         for j in invalidCuts:
-            #print('Invalid cut second attempt ',j)
+            
+            #Generete strings for messages
+            str_try = 'ut after second attempt on part {} on point {}, cnt_start={} cnt_end={}\n'.format(str_part, j-cnt_start, cnt_start, cnt_end)
+            str_except = 'Could not make c'+str_try
+            str_try = 'C'+str_try
+            
+            #Cut the CNT cell at point j
+            Partition_CNT_Cell_At_Point(modelName, cnt_rad, cnt_start, cnt_end, j, cnt_coords, str_part, hc, str_try, str_except)
+
+#This function partitions a cell at a given point
+def Partition_CNT_Cell_At_Point(modelName, cnt_rad, cnt_start, cnt_end, idx, cnt_coords, str_part, hc, str_try, str_except):
+            
+    #Get the points of the CNT segments that share point i
+    #End point of first CNT segment
+    P1 = cnt_coords[idx-1]
+    #Point shared by both CNT segments
+    P2 = cnt_coords[idx]
+    #End point of second CNT segment
+    P3 = cnt_coords[idx+1]
+
+    #Get the unit vector of first CNT segment
+    v1 = get_unit_vector(P2, P1)
+
+    #Get the unit vector of second CNT segment
+    v2 = get_unit_vector(P2, P3)
     
-            #Get the points of the CNT segments that share point i
-            #End point of first CNT segment
-            P1 = cnt_coords[j-1]
-            #Point shared by both CNT segments
-            P2 = cnt_coords[j]
-            #End point of second CNT segment
-            P3 = cnt_coords[j+1]
-    
-            #Get the unit vector of first CNT segment
-            v1 = get_unit_vector(P2, P1)
-    
-            #Get the unit vector of second CNT segment
-            v2 = get_unit_vector(P2, P3)
-    
-            #Get the edges of the octagon that are used to cut the CNT
-            octagon_edges = Get_octagon_to_cut_CNT(modelName, str_part, cnt_rad, P2, v1, v2, hc)
-            try:
-                #Use the octagon edges in the tuple to partition the cell
-                mdb.models[modelName].parts[str_part].PartitionCellByPatchNEdges(
-                    cell=mdb.models[modelName].parts[str_part].cells.findAt(P2, ),
-                    edges=octagon_edges)
-    
-                plog('Cut after second attempt on part {} on point {}, cnt_start={} cnt_end={}\n'.format(str_part, j-cnt_start, cnt_start, cnt_end))
-            except:
-    
-                plog('Could not make cut after second attempt on part {} on point {}, cnt_start={} cnt_end={}\n'.format(str_part, j-cnt_start, cnt_start, cnt_end))     
+    #Get the edges of the octagon that are used to cut the CNT
+    octagon_edges = Get_octagon_to_cut_CNT(modelName, str_part, cnt_rad, P2, v1, v2, hc)
+    try:
+        #Use the octagon edges in the tuple to partition the cell
+        mdb.models[modelName].parts[str_part].PartitionCellByPatchNEdges(
+            cell=mdb.models[modelName].parts[str_part].cells.findAt(P2, ),
+            edges=octagon_edges)
+        
+        plog(str_try)
+    except:
+        
+        plog(str_except) 
 
 #This function get the octagon needed to cut a CNT
 def Get_octagon_to_cut_CNT(modelName, str_part, cnt_rad, P2, v1, v2, hc):
@@ -2371,12 +2358,12 @@ Generate_CNT_Meshes_Array(modelName, cnts_new, arr_acc_pts, cnt_struct, cnt_coor
 #NOTE: Sets are generated on root assembly
 Create_All_Sets_For_CNT_Points_Array(modelName, cnts_new, arr_acc_pts, cnt_struct, cnt_coords)
 
-end = time.time()
-plog("Time for meshing: {} secs.\n".format(end-start))
+plog("Time for meshing: {} secs.\n".format(time.time()-start))
 
 #---------------------------------------END: MESHING----------------------------------------#
 
 #Check if there are any sets that do not have the expected number of nodes 
+start = time.time()
 
 #Iterate over the number of CNTs
 for cnt_i in range(1, N_CNTs+1):
@@ -2400,6 +2387,7 @@ for cnt_i in range(1, N_CNTs+1):
         #If the set could not be accessed send a message
         plog('Set not found: {}\n'.format(node_set_str))
 
+plog("Time for checking sets: {} secs.\n".format(time.time()-start))
 ###################################---JOB CREATION---######################################
 
     
