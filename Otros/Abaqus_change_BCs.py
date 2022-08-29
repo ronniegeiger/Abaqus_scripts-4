@@ -98,6 +98,7 @@ def plog(str):
     
     #Print to file
     pfile.write(str)
+    pfile.flush()
         
 ##############################################################################################
 ##############################################################################################
@@ -113,6 +114,8 @@ start0 = time.time()
 jobName = 'VOL0160_CNT01GNP01'
 #Name of the file to save print messages
 print_file = jobName + '.txt'
+pfile = open(print_file, "a")
+plog('############################ START ############################\n')
 
 #Name of the input file
 inpName = jobName+'.inp'
@@ -124,8 +127,6 @@ mdb.ModelFromInputFile(
     name=modelName)
 
 end = time.time()
-
-pfile = open(print_file, "a")
 plog('Importing model from inp time: {}\n'.format(end-start))
 
 ##############################################################################################
